@@ -477,9 +477,40 @@ function toggleFinanceType() {
     $('#finCategory').setAttribute('list', isIncome ? 'finCatIncome' : 'finCatList');
   }
 }
+/* Finance modal: the add/edit form lives in a native <dialog>. */
+function financeDialog() { return $('#financeDialog'); }
+function resetFinanceForm() {
+  editingFinanceId = null;
+  $('#financeForm').reset();
+  $('#finDate').value = todayStr(); $('#finType').value = 'expense';
+  $('#finPay').value = 'Cash'; toggleFinanceType();
+  $('#financeFormTitle').textContent = 'Add transaction';
+  $('#financeSubmit').textContent = 'Add';
+  $('#financeCancel').hidden = true;
+}
+function openFinanceDialog() {
+  var d = financeDialog();
+  if (typeof d.showModal === 'function') { if (!d.open) d.showModal(); }
+  else d.setAttribute('open', '');
+  $('#finAmount').focus();
+}
+function closeFinanceDialog() {
+  var d = financeDialog();
+  if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+  resetFinanceForm();
+}
 function initFinance() {
   $('#finDate').value = todayStr();
   toggleFinanceType();
+  $('#openFinanceModal').addEventListener('click', function () {
+    resetFinanceForm(); openFinanceDialog();
+  });
+  $('#financeCancel').addEventListener('click', closeFinanceDialog);
+  $('#financeClose').addEventListener('click', closeFinanceDialog);
+  financeDialog().addEventListener('click', function (e) {
+    if (e.target === financeDialog()) closeFinanceDialog(); // backdrop click
+  });
+  financeDialog().addEventListener('close', resetFinanceForm); // ESC key
   $('#finType').addEventListener('change', toggleFinanceType);
   var amtInput = $('#finAmount');
   amtInput.addEventListener('input', function () { formatAmountLive(amtInput); });
@@ -487,8 +518,6 @@ function initFinance() {
   var feeInput = $('#finFee');
   feeInput.addEventListener('input', function () { formatAmountLive(feeInput); });
   feeInput.addEventListener('blur', function () { formatAmountBlur(feeInput); });
-  amtInput.addEventListener('input', function () { formatAmountLive(amtInput); });
-  amtInput.addEventListener('blur', function () { formatAmountBlur(amtInput); });
   $all('#view-finance .seg-btn').forEach(function (b) {
     b.addEventListener('click', function () {
       $all('#view-finance .seg-btn').forEach(function (x) { x.classList.remove('is-active'); });
@@ -528,8 +557,7 @@ function initFinance() {
         $('#financeSubmit').textContent = 'Add';
         $('#financeCancel').hidden = true;
       } else state.finance.push(tobj);
-      e.target.reset(); $('#finDate').value = todayStr(); $('#finType').value = 'expense';
-      $('#finPay').value = 'Cash'; toggleFinanceType();
+      financeDialog().close(); // 'close' event resets the form
       save(); renderAll();
       return;
     }
@@ -554,17 +582,8 @@ function initFinance() {
       $('#financeSubmit').textContent = 'Add';
       $('#financeCancel').hidden = true;
     } else state.finance.push(obj);
-    e.target.reset(); $('#finDate').value = todayStr(); $('#finType').value = 'expense';
-    $('#finPay').value = 'Cash'; toggleFinanceType();
+    financeDialog().close(); // 'close' event resets the form
     save(); renderAll();
-  });
-  $('#financeCancel').addEventListener('click', function () {
-    editingFinanceId = null; $('#financeForm').reset();
-    $('#finDate').value = todayStr(); $('#finType').value = 'expense';
-    $('#finPay').value = 'Cash'; toggleFinanceType();
-    $('#financeFormTitle').textContent = 'Add transaction';
-    $('#financeSubmit').textContent = 'Add';
-    $('#financeCancel').hidden = true;
   });
   $('#financeList').addEventListener('click', function (e) {
     var ed = e.target.getAttribute('data-edit-fin');
@@ -587,7 +606,7 @@ function initFinance() {
       $('#financeFormTitle').textContent = 'Edit transaction';
       $('#financeSubmit').textContent = 'Save';
       $('#financeCancel').hidden = false;
-      $('#finAmount').focus();
+      openFinanceDialog();
     }
     if (del) {
       if (!confirm('Delete this transaction?')) return;

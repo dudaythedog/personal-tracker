@@ -141,5 +141,16 @@ input, select {
 .chart .bar { fill: var(--accent); }
 .chart .bar-bg { fill: var(--bg-soft); stroke: var(--border); }
 
+/* modal dialog (native <dialog>, no dependencies) */
+dialog {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card); color: var(--text);
+  padding: 1rem; width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem); overflow: auto;
+}
+dialog::backdrop { background: rgba(0, 0, 0, .5); }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; }
+.dialog-head h3 { margin: 0; }
+
 .footer { margin-top: 1.5rem; text-align: center; font-size: .85rem; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

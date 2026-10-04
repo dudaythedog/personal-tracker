@@ -194,6 +194,7 @@
       <article class="card stat"><h3>Balance <span class="muted-sm">(month)</span></h3><p class="big" id="finBalance">–</p></article>
     </div>
     <div class="toolbar row wrap">
+      <button type="button" class="btn" id="openFinanceModal">+ Add transaction</button>
       <div class="seg" role="group" aria-label="Finance date filter">
         <button type="button" data-range="month" class="seg-btn is-active">This month</button>
         <button type="button" data-range="week" class="seg-btn">This week</button>
@@ -201,8 +202,11 @@
         <button type="button" data-range="all" class="seg-btn">All</button>
       </div>
     </div>
-    <article class="card">
-      <h3 id="financeFormTitle">Add transaction</h3>
+    <dialog id="financeDialog" aria-labelledby="financeFormTitle">
+      <div class="dialog-head">
+        <h3 id="financeFormTitle">Add transaction</h3>
+        <button type="button" id="financeClose" class="btn btn-ghost btn-sm" aria-label="Close dialog">✕</button>
+      </div>
       <form id="financeForm" class="form-grid cols-2">
         <div class="field">
           <label for="finType">Type</label>
@@ -292,7 +296,7 @@
           <button type="button" class="btn btn-ghost" id="financeCancel" hidden>Cancel edit</button>
         </div>
       </form>
-    </article>
+    </dialog>
     <article class="card">
       <h3>Transactions</h3>
       <ul id="financeList" class="entry-list"></ul>
