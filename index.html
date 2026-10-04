@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Lightweight personal tracker: habits, health, finance, goals. Private, offline, no account.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+<title>Personal Tracker</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">◉</span>
+      <div>
+        <h1>Personal Tracker</h1>
+        <p class="tagline">Private · Offline · On your device</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="themeToggle" type="button" class="btn btn-ghost" aria-label="Toggle light/dark mode">🌙 Auto</button>
+      <button id="exportBtnTop" type="button" class="btn btn-ghost">Export</button>
+    </div>
+  </div>
+  <nav class="tabs" aria-label="Tracker sections">
+    <button type="button" class="tab is-active" data-tab="dashboard" aria-current="page">Home</button>
+    <button type="button" class="tab" data-tab="habits">Habits</button>
+    <button type="button" class="tab" data-tab="health">Health</button>
+    <button type="button" class="tab" data-tab="finance">Finance</button>
+    <button type="button" class="tab" data-tab="tasks">Goals &amp; Tasks</button>
+  </nav>
+</header>
+
+<main id="main" class="container">
+
+  <!-- DASHBOARD -->
+  <section id="view-dashboard" class="view is-active" aria-labelledby="h-dashboard">
+    <h2 id="h-dashboard">Today's summary <span id="todayLabel" class="muted"></span></h2>
+
+    <div class="grid cards-4">
+      <article class="card">
+        <h3>Habits</h3>
+        <p class="big" id="dashHabits">–</p>
+        <p class="muted" id="dashHabitsSub"></p>
+      </article>
+      <article class="card">
+        <h3>Health</h3>
+        <p class="big" id="dashHealth">–</p>
+        <p class="muted" id="dashHealthSub"></p>
+      </article>
+      <article class="card">
+        <h3>Spending <span class="muted-sm">(month)</span></h3>
+        <p class="big" id="dashFinance">–</p>
+        <p class="muted" id="dashFinanceSub"></p>
+      </article>
+      <article class="card">
+        <h3>Tasks</h3>
+        <p class="big" id="dashTasks">–</p>
+        <p class="muted" id="dashTasksSub"></p>
+      </article>
+    </div>
+
+    <article class="card">
+      <h3>Wallet balances <span class="muted-sm">(all time, net per payment method)</span></h3>
+      <p class="muted">Income adds, spending subtracts, transfers move money between wallets. Transfer fees count as spending.</p>
+      <div id="walletBalances" class="grid cards-4"></div>
+      <p id="walletEmpty" class="muted">No wallet activity yet — log a transaction with a payment method.</p>
+    </article>
+
+    <div class="grid cards-2">
+      <article class="card">
+        <h3>Weekly habit completion</h3>
+        <p class="muted">Last 7 days, all habits combined.</p>
+        <div id="chartHabitsWeek" role="img" aria-label="Bar chart of habit completion for the last 7 days"></div>
+      </article>
+      <article class="card">
+        <h3>Spending by category <span class="muted-sm">(this month)</span></h3>
+        <p class="muted">Expenses + transfer fees.</p>
+        <div id="chartSpendCat" role="img" aria-label="Bar chart of spending by category this month"></div>
+      </article>
+    </div>
+
+    <article class="card">
+      <h3>Your data</h3>
+      <p class="muted">Everything is stored only in this browser (<code>localStorage</code>). Nothing leaves your device. Back up regularly with Export.</p>
+      <div class="row wrap">
+        <button id="exportBtn" type="button" class="btn">Download backup (JSON)</button>
+        <label class="btn btn-secondary file-label" for="importFile">Import JSON…</label>
+        <input id="importFile" type="file" accept="application/json,.json" class="visually-hidden">
+        <button id="resetBtn" type="button" class="btn btn-danger">Reset all data</button>
+      </div>
+      <p id="dataMsg" class="msg" role="status" aria-live="polite"></p>
+      <div id="importBox" class="import-box" hidden>
+        <p><strong>Import found valid data.</strong> <span id="importSummary"></span></p>
+        <p>How do you want to proceed?</p>
+        <div class="row wrap">
+          <button id="importReplace" type="button" class="btn btn-danger">Replace existing</button>
+          <button id="importMerge" type="button" class="btn btn-secondary">Merge with existing</button>
+          <button id="importCancel" type="button" class="btn btn-ghost">Cancel</button>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- HABITS -->
+  <section id="view-habits" class="view" aria-labelledby="h-habits" hidden>
+    <h2 id="h-habits">Habits</h2>
+    <article class="card">
+      <h3 id="habitFormTitle">Add a habit</h3>
+      <form id="habitForm" class="form-grid">
+        <div class="field">
+          <label for="habitName">Habit name</label>
+          <input id="habitName" name="habitName" type="text" required maxlength="80" autocomplete="off">
+        </div>
+        <div class="row">
+          <button type="submit" class="btn" id="habitSubmit">Add habit</button>
+          <button type="button" class="btn btn-ghost" id="habitCancel" hidden>Cancel edit</button>
+        </div>
+      </form>
+    </article>
+    <article class="card">
+      <h3>Today's checklist</h3>
+      <ul id="habitList" class="check-list"></ul>
+      <p id="habitEmpty" class="muted">No habits yet. Add your first one above.</p>
+    </article>
+  </section>
+
+  <!-- HEALTH -->
+  <section id="view-health" class="view" aria-labelledby="h-health" hidden>
+    <h2 id="h-health">Health</h2>
+    <div class="toolbar row wrap">
+      <div class="seg" role="group" aria-label="Health date filter">
+        <button type="button" data-range="today" class="seg-btn is-active">Today</button>
+        <button type="button" data-range="week" class="seg-btn">This week</button>
+        <button type="button" data-range="month" class="seg-btn">This month</button>
+        <button type="button" data-range="all" class="seg-btn">All</button>
+      </div>
+    </div>
+    <article class="card">
+      <h3 id="healthFormTitle">Log health</h3>
+      <form id="healthForm" class="form-grid cols-2">
+        <div class="field">
+          <label for="healthDate">Date</label>
+          <input id="healthDate" type="date" required>
+        </div>
+        <div class="field">
+          <label for="healthWater">Water (glasses)</label>
+          <input id="healthWater" type="number" min="0" max="30" step="1">
+        </div>
+        <div class="field">
+          <label for="healthSleep">Sleep (hours)</label>
+          <input id="healthSleep" type="number" min="0" max="24" step="0.5">
+        </div>
+        <div class="field">
+          <label for="healthWorkout">Workout (min, 0 = rest)</label>
+          <input id="healthWorkout" type="number" min="0" max="600" step="1">
+        </div>
+        <div class="field">
+          <label for="healthWeight">Weight (kg)</label>
+          <input id="healthWeight" type="number" min="20" max="300" step="0.1">
+        </div>
+        <div class="field">
+          <label for="healthNote">Note <span class="muted-sm">(optional)</span></label>
+          <input id="healthNote" type="text" maxlength="140" autocomplete="off">
+        </div>
+        <div class="row form-span">
+          <button type="submit" class="btn" id="healthSubmit">Save entry</button>
+          <button type="button" class="btn btn-ghost" id="healthCancel" hidden>Cancel edit</button>
+        </div>
+      </form>
+    </article>
+    <article class="card">
+      <h3>Entries</h3>
+      <ul id="healthList" class="entry-list"></ul>
+      <p id="healthEmpty" class="muted">No entries for this period.</p>
+    </article>
+  </section>
+
+  <!-- FINANCE -->
+  <section id="view-finance" class="view" aria-labelledby="h-finance" hidden>
+    <h2 id="h-finance">Finance</h2>
+    <article class="card">
+      <h3>Wallet balances</h3>
+      <div id="finWalletBalances" class="grid cards-4"></div>
+      <p id="finWalletEmpty" class="muted">No wallet activity yet.</p>
+    </article>
+    <div class="grid cards-3">
+      <article class="card stat"><h3>Income <span class="muted-sm">(month)</span></h3><p class="big pos" id="finIncome">–</p></article>
+      <article class="card stat"><h3>Expenses <span class="muted-sm">(month)</span></h3><p class="big neg" id="finExpense">–</p></article>
+      <article class="card stat"><h3>Balance <span class="muted-sm">(month)</span></h3><p class="big" id="finBalance">–</p></article>
+    </div>
+    <div class="toolbar row wrap">
+      <div class="seg" role="group" aria-label="Finance date filter">
+        <button type="button" data-range="month" class="seg-btn is-active">This month</button>
+        <button type="button" data-range="week" class="seg-btn">This week</button>
+        <button type="button" data-range="today" class="seg-btn">Today</button>
+        <button type="button" data-range="all" class="seg-btn">All</button>
+      </div>
+    </div>
+    <article class="card">
+      <h3 id="financeFormTitle">Add transaction</h3>
+      <form id="financeForm" class="form-grid cols-2">
+        <div class="field">
+          <label for="finType">Type</label>
+          <select id="finType">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+            <option value="transfer">Transfer (move money)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="finAmount">Amount (₱)</label>
+          <input id="finAmount" type="text" required inputmode="decimal" autocomplete="off">
+        </div>
+        <div class="field form-span" id="finTransferWrap" hidden>
+          <div class="form-grid cols-2">
+            <div class="field">
+              <label for="finFrom">From wallet</label>
+              <select id="finFrom">
+                <option value="Cash">Cash</option>
+                <option value="GCash">GCash</option>
+                <option value="Maya" selected>Maya</option>
+                <option value="Debit Card">Debit Card</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="finTo">To wallet</label>
+              <select id="finTo">
+                <option value="Cash">Cash</option>
+                <option value="GCash" selected>GCash</option>
+                <option value="Maya">Maya</option>
+                <option value="Debit Card">Debit Card</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="finFee">Transfer fee (₱) <span class="muted-sm">(optional)</span></label>
+              <input id="finFee" type="text" inputmode="decimal" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="field" id="finCatWrap">
+          <label for="finCategory">Category</label>
+          <input id="finCategory" type="text" list="finCatList" required maxlength="40" autocomplete="off">
+          <datalist id="finCatList">
+            <option value="Groceries"></option><option value="Dining Out"></option>
+            <option value="Entertainment"></option><option value="Utilities"></option>
+            <option value="Subscriptions"></option><option value="Transportation"></option>
+            <option value="Housing"></option><option value="Household"></option>
+            <option value="Health & Wellness"></option><option value="Education"></option>
+            <option value="Taxes & Contributions"></option><option value="Savings"></option>
+            <option value="Investments"></option><option value="Other"></option>
+          </datalist>
+          <datalist id="finCatIncome">
+            <option value="Salary"></option><option value="Bonus"></option>
+            <option value="Freelance"></option><option value="Business Income"></option>
+            <option value="Allowance"></option><option value="Gift"></option>
+            <option value="Interest"></option><option value="Other"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="finDate">Date</label>
+          <input id="finDate" type="date" required>
+        </div>
+        <div class="field form-span">
+          <label for="finDesc">Description <span class="muted-sm">(optional)</span></label>
+          <input id="finDesc" type="text" maxlength="140" autocomplete="off">
+        </div>
+        <div class="field form-span" id="finPayWrap">
+          <label for="finPay" id="finPayLabel">Mode of payment</label>
+          <select id="finPay">
+            <option value="Cash">Cash</option>
+            <option value="GCash">GCash</option>
+            <option value="Maya">Maya</option>
+            <option value="Debit Card">Debit Card</option>
+            <option value="Credit Card">Credit Card</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="row form-span">
+          <button type="submit" class="btn" id="financeSubmit">Add</button>
+          <button type="button" class="btn btn-ghost" id="financeCancel" hidden>Cancel edit</button>
+        </div>
+      </form>
+    </article>
+    <article class="card">
+      <h3>Transactions</h3>
+      <ul id="financeList" class="entry-list"></ul>
+      <p id="financeEmpty" class="muted">No transactions for this period.</p>
+    </article>
+  </section>
+
+  <!-- TASKS / GOALS -->
+  <section id="view-tasks" class="view" aria-labelledby="h-tasks" hidden>
+    <h2 id="h-tasks">Goals &amp; Tasks</h2>
+    <div class="grid cards-2">
+      <article class="card">
+        <h3 id="goalFormTitle">Add a goal</h3>
+        <form id="goalForm" class="form-grid">
+          <div class="field">
+            <label for="goalTitle">Goal title</label>
+            <input id="goalTitle" type="text" required maxlength="100" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="goalDeadline">Target date <span class="muted-sm">(optional)</span></label>
+            <input id="goalDeadline" type="date">
+          </div>
+          <div class="row">
+            <button type="submit" class="btn" id="goalSubmit">Add goal</button>
+            <button type="button" class="btn btn-ghost" id="goalCancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+        <h3 class="mt">Goals</h3>
+        <ul id="goalList" class="entry-list"></ul>
+        <p id="goalEmpty" class="muted">No goals yet.</p>
+      </article>
+      <article class="card">
+        <h3 id="taskFormTitle">Add a task</h3>
+        <form id="taskForm" class="form-grid">
+          <div class="field">
+            <label for="taskTitle">Task</label>
+            <input id="taskTitle" type="text" required maxlength="140" autocomplete="off">
+          </div>
+          <div class="form-grid cols-2">
+            <div class="field">
+              <label for="taskDue">Due date <span class="muted-sm">(optional)</span></label>
+              <input id="taskDue" type="date">
+            </div>
+            <div class="field">
+              <label for="taskPriority">Priority</label>
+              <select id="taskPriority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="taskGoal">Link to goal <span class="muted-sm">(optional)</span></label>
+            <select id="taskGoal"><option value="">— No goal —</option></select>
+          </div>
+          <div class="row">
+            <button type="submit" class="btn" id="taskSubmit">Add task</button>
+            <button type="button" class="btn btn-ghost" id="taskCancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+        <h3 class="mt">Tasks</h3>
+        <div class="toolbar row wrap">
+          <div class="seg" role="group" aria-label="Task filter">
+            <button type="button" data-range="open" class="seg-btn is-active">Open</button>
+            <button type="button" data-range="done" class="seg-btn">Done</button>
+            <button type="button" data-range="all" class="seg-btn">All</button>
+          </div>
+        </div>
+        <ul id="taskList" class="check-list"></ul>
+        <p id="taskEmpty" class="muted">No tasks here.</p>
+      </article>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p class="muted">Stored locally in your browser · Works offline · <span id="storageInfo"></span></p>
+  </footer>
+</main>
+
+<noscript><p style="padding:1rem;text-align:center">This app needs JavaScript (it runs 100% locally in your browser).</p></noscript>
+<script src="./app.js" defer></script>
+</body>
+</html>
