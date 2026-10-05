@@ -8,6 +8,14 @@
 <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
 <title>Personal Tracker</title>
 <link rel="stylesheet" href="./style.css">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tracker">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -22,6 +30,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <button id="installBtn" type="button" class="btn" hidden>⬇ Install</button>
       <button id="themeToggle" type="button" class="btn btn-ghost" aria-label="Toggle light/dark mode">🌙 Auto</button>
       <button id="exportBtnTop" type="button" class="btn btn-ghost">Export</button>
     </div>
@@ -83,6 +92,16 @@
         <div id="chartSpendCat" role="img" aria-label="Bar chart of spending by category this month"></div>
       </article>
     </div>
+
+    <article class="card install-card" id="installCard" hidden>
+      <h3>Install app 📲</h3>
+      <p class="muted" id="installText">Add this tracker to your home screen for quick, fullscreen, offline access.</p>
+      <div class="row wrap">
+        <button id="installBtnCard" type="button" class="btn">Install</button>
+        <button id="installDismiss" type="button" class="btn btn-ghost">Not now</button>
+      </div>
+      <p class="meta" id="installIosHint" hidden>On iPhone / iPad: tap <strong>Share</strong> (⎙) → <strong>Add to Home Screen</strong>. No download needed.</p>
+    </article>
 
     <article class="card">
       <h3>Your data</h3>

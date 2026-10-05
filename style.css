@@ -259,4 +259,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .5); }
   dialog { max-height: 96vh; max-height: 96dvh; }
 }
 
+/* install prompt */
+.install-card { border-style: dashed; }
+#installBtn[hidden] { display: none !important; }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

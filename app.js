@@ -986,6 +986,103 @@ function initDataButtons() {
   });
 }
 
+/* ---------- PWA: service worker + Add to Home Screen ---------- */
+var deferredInstallPrompt = null;
+var INSTALL_DISMISS_KEY = 'personal-tracker-install-dismissed';
+function isStandalone() {
+  try {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+  } catch (e) {}
+  if (window.navigator && window.navigator.standalone === true) return true; // iOS
+  return false;
+}
+function isIos() {
+  var ua = (navigator.userAgent || '').toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return true;
+  // iPadOS 13+ reports as MacIntel with touch
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  return false;
+}
+function installDismissed() {
+  try { return localStorage.getItem(INSTALL_DISMISS_KEY) === '1'; } catch (e) { return false; }
+}
+function hideInstallUI() {
+  var b = $('#installBtn'); if (b) b.hidden = true;
+  var c = $('#installCard'); if (c) c.hidden = true;
+}
+function refreshInstallUI() {
+  var btn = $('#installBtn'), card = $('#installCard');
+  if (!btn || !card) return;
+  if (isStandalone()) { hideInstallUI(); return; }
+  if (installDismissed() && !deferredInstallPrompt) { hideInstallUI(); return; }
+  if (isIos()) {
+    // iOS has no beforeinstallprompt — show manual steps once.
+    if (installDismissed()) { hideInstallUI(); return; }
+    card.hidden = false;
+    btn.hidden = true;
+    var hint = $('#installIosHint'); if (hint) hint.hidden = false;
+    var cta = $('#installBtnCard'); if (cta) cta.hidden = true; // nothing to trigger on iOS
+    return;
+  }
+  // Android / desktop Chromium: show when the browser says installable.
+  if (deferredInstallPrompt) {
+    btn.hidden = false;
+    if (!installDismissed()) card.hidden = false;
+  } else {
+    btn.hidden = true;
+    // Still show the card (with manual fallback text) so users can find it.
+    if (!installDismissed()) card.hidden = false;
+  }
+}
+function promptInstall() {
+  if (deferredInstallPrompt) {
+    try {
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt.userChoice.then(function (choice) {
+        if (choice && choice.outcome === 'accepted') hideInstallUI();
+        deferredInstallPrompt = null;
+        refreshInstallUI();
+      }).catch(function () {});
+    } catch (e) {}
+    return;
+  }
+  // No prompt available (already handled on iOS): explain manual steps.
+  var t = $('#installText');
+  if (t) {
+    t.textContent = isIos()
+      ? 'On iPhone / iPad: tap Share (⎙) → Add to Home Screen.'
+      : 'Open the browser menu (⋮) → “Add to Home screen” or “Install app”. Then it opens fullscreen and works offline.';
+  }
+}
+function initPWA() {
+  // Offline cache (needs http(s); file:// skips silently).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      try {
+        navigator.serviceWorker.register('./sw.js').catch(function () {});
+      } catch (e) {}
+    });
+  }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    refreshInstallUI();
+  });
+  window.addEventListener('appinstalled', function () {
+    deferredInstallPrompt = null;
+    hideInstallUI();
+  });
+  document.addEventListener('click', function (e) {
+    var id = e.target && e.target.id;
+    if (id === 'installBtn' || id === 'installBtnCard') promptInstall();
+    if (id === 'installDismiss') {
+      try { localStorage.setItem(INSTALL_DISMISS_KEY, '1'); } catch (err) {}
+      var c = $('#installCard'); if (c) c.hidden = true;
+    }
+  });
+  refreshInstallUI();
+}
+
 /* ---------- boot ---------- */
 function renderAll() {
   renderDashboard(); renderHabits(); renderHealth(); renderFinance(); renderTasks();
@@ -995,5 +1092,6 @@ document.addEventListener('DOMContentLoaded', function () {
   load();
   initTheme(); initTabs();
   initHabits(); initHealth(); initFinance(); initTasks(); initDataButtons();
+  initPWA();
   renderAll();
 });
