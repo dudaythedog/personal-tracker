@@ -208,9 +208,9 @@
       <p id="finWalletEmpty" class="muted">No wallet activity yet.</p>
     </article>
     <div class="grid cards-3">
-      <article class="card stat"><h3>Income <span class="muted-sm">(month)</span></h3><p class="big pos" id="finIncome">–</p></article>
-      <article class="card stat"><h3>Expenses <span class="muted-sm">(month)</span></h3><p class="big neg" id="finExpense">–</p></article>
-      <article class="card stat"><h3>Balance <span class="muted-sm">(month)</span></h3><p class="big" id="finBalance">–</p></article>
+      <article class="card stat"><h3>Income <span class="muted-sm" id="finIncomeMonth">(month)</span></h3><p class="big pos" id="finIncome">–</p></article>
+      <article class="card stat"><h3>Expenses <span class="muted-sm" id="finExpenseMonth">(month)</span></h3><p class="big neg" id="finExpense">–</p></article>
+      <article class="card stat"><h3>Balance <span class="muted-sm" id="finBalanceMonth">(month)</span></h3><p class="big" id="finBalance">–</p></article>
     </div>
     <div class="toolbar row wrap">
       <button type="button" class="btn" id="openFinanceModal">+ Add transaction</button>
@@ -220,6 +220,12 @@
         <button type="button" data-range="today" class="seg-btn">Today</button>
         <button type="button" data-range="all" class="seg-btn">All</button>
       </div>
+    </div>
+    <div class="toolbar row wrap" id="finMonthNav">
+      <button type="button" class="btn btn-ghost btn-sm" id="finPrevMonth" aria-label="Previous month">‹ Prev</button>
+      <strong id="finMonthLabel" aria-live="polite"></strong>
+      <button type="button" class="btn btn-ghost btn-sm" id="finNextMonth" aria-label="Next month">Next ›</button>
+      <input id="finMonthPicker" type="month" aria-label="Choose month" style="width:auto">
     </div>
     <dialog id="financeDialog" aria-labelledby="financeFormTitle">
       <div class="dialog-head">

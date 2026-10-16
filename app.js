@@ -38,6 +38,29 @@ function addDaysStr(dateStr, n) {
   return fmtDate(d);
 }
 function monthKey(dateStr) { return String(dateStr || '').slice(0, 7); } // YYYY-MM
+// Normalize to YYYY-MM-DD (pads 2026-9-5 -> 2026-09-05, strips time). Falls back to today.
+function normDateStr(s, fallback) {
+  var raw = String(s || '').trim().slice(0, 10);
+  var m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return fallback || todayStr();
+  var y = m[1], mo = String(+m[2]).padStart(2, '0'), d = String(+m[3]).padStart(2, '0');
+  var dt = parseD(y + '-' + mo + '-' + d);
+  if (!dt) return fallback || todayStr();
+  // Reject rollover dates like 2026-02-30 (JS rolls into March).
+  if (dt.getFullYear() !== +y || (dt.getMonth() + 1) !== +mo || dt.getDate() !== +d) return fallback || todayStr();
+  return y + '-' + mo + '-' + d;
+}
+function monthLabel(ym) { // '2026-10' -> 'Oct 2026'
+  var p = String(ym || '').split('-');
+  if (p.length < 2) return ym;
+  var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return (names[(+p[1]) - 1] || p[1]) + ' ' + p[0];
+}
+function shiftMonth(ym, delta) {
+  var p = String(ym || monthKey(todayStr())).split('-');
+  var d = new Date(+p[0], (+p[1]) - 1 + delta, 1);
+  return fmtDate(d).slice(0, 7);
+}
 function startOfWeekStr(dateStr) { // Monday start
   var d = parseD(dateStr) || new Date();
   var dow = (d.getDay() + 6) % 7; // Mon=0
@@ -115,12 +138,12 @@ function migrate(s) {
     return { id: String(h.id || uid()), name: String(h.name).slice(0, 80), created: h.created || todayStr(), checks: (h.checks && typeof h.checks === 'object') ? h.checks : {} };
   });
   d.health = arr(s.health).map(function (h) {
-    return { id: String(h.id || uid()), date: h.date || todayStr(), water: numOrNull(h.water), sleep: numOrNull(h.sleep), workout: numOrNull(h.workout), weight: numOrNull(h.weight), note: String(h.note || '').slice(0, 140) };
+    return { id: String(h.id || uid()), date: normDateStr(h.date), water: numOrNull(h.water), sleep: numOrNull(h.sleep), workout: numOrNull(h.workout), weight: numOrNull(h.weight), note: String(h.note || '').slice(0, 140) };
   }).filter(function (h) { return !!parseD(h.date); });
   d.finance = arr(s.finance).map(function (f) {
     // note (old field name) folds into description so old backups keep their text
     var t = (f.type === 'income' || f.type === 'transfer') ? f.type : 'expense';
-    return { id: String(f.id || uid()), type: t, amount: Math.abs(Number(f.amount) || 0), category: String(f.category || (t === 'transfer' ? 'Transfer' : 'Other')).slice(0, 40), description: String(f.description || f.note || '').slice(0, 140), payMethod: String(f.payMethod || '').slice(0, 30), fee: Math.abs(Number(f.fee) || 0), fromWallet: String(f.fromWallet || f.payMethod || '').slice(0, 30), toWallet: String(f.toWallet || '').slice(0, 30), date: f.date || todayStr() };
+    return { id: String(f.id || uid()), type: t, amount: Math.abs(Number(f.amount) || 0), category: String(f.category || (t === 'transfer' ? 'Transfer' : 'Other')).slice(0, 40), description: String(f.description || f.note || '').slice(0, 140), payMethod: String(f.payMethod || '').slice(0, 30), fee: Math.abs(Number(f.fee) || 0), fromWallet: String(f.fromWallet || f.payMethod || '').slice(0, 30), toWallet: String(f.toWallet || '').slice(0, 30), date: normDateStr(f.date) };
   }).filter(function (f) { return f.amount > 0 && !!parseD(f.date); });
   d.goals = arr(s.goals).filter(function (g) { return g && typeof g.title === 'string'; }).map(function (g) {
     return { id: String(g.id || uid()), title: String(g.title).slice(0, 100), deadline: g.deadline || '', created: g.created || todayStr() };
@@ -358,7 +381,10 @@ function initHealth() {
 }
 
 /* ---------- finance ---------- */
-var financeRange = 'month', editingFinanceId = null;
+var financeRange = 'month', editingFinanceId = null, financeMonth = monthKey(todayStr());
+function financeViewMonth() {
+  return /^\d{4}-\d{2}$/.test(financeMonth || '') ? financeMonth : monthKey(todayStr());
+}
 // Parse "10,000.00" / "₱10,000" / "10000.5" -> 10000. Accepts commas.
 function parseAmount(str) {
   if (str == null) return NaN;
@@ -434,13 +460,33 @@ function walletBalances() {
     .map(function (w) { return { wallet: w, balance: bal[w] || 0 }; });
 }
 function renderFinance() {
-  var monthItems = state.finance.filter(function (f) { return monthKey(f.date) === monthKey(todayStr()); });
+  // Summary cards always show the viewed month (defaults to current month),
+  // so September income can never leak into the October total.
+  var viewMonth = financeViewMonth();
+  var monthItems = state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) === viewMonth; });
   var mt = financeTotals(monthItems);
   $('#finIncome').textContent = money(mt.income);
   $('#finExpense').textContent = money(mt.expense);
   $('#finBalance').textContent = money(mt.balance);
-  var items = state.finance.filter(function (f) { return inRange(f.date, financeRange); })
-    .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+  var mLabel = monthLabel(viewMonth);
+  ['finIncomeMonth', 'finExpenseMonth', 'finBalanceMonth'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = '(' + mLabel + ')';
+  });
+  // Keep the month navigator in sync; only relevant in month mode.
+  var picker = $('#finMonthPicker');
+  if (picker && picker.value !== viewMonth) picker.value = viewMonth;
+  var nav = $('#finMonthNav');
+  if (nav) nav.hidden = financeRange !== 'month';
+  var navLabel = $('#finMonthLabel');
+  if (navLabel) navLabel.textContent = mLabel;
+  var items;
+  if (financeRange === 'month') {
+    items = monthItems.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+  } else {
+    items = state.finance.filter(function (f) { return inRange(f.date, financeRange); })
+      .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+  }
   $('#financeEmpty').style.display = items.length ? 'none' : '';
   $('#financeList').innerHTML = items.map(function (f) {
     if (f.type === 'transfer') {
@@ -522,13 +568,25 @@ function initFinance() {
     b.addEventListener('click', function () {
       $all('#view-finance .seg-btn').forEach(function (x) { x.classList.remove('is-active'); });
       b.classList.add('is-active');
-      financeRange = b.dataset.range; renderFinance();
+      financeRange = b.dataset.range;
+      if (financeRange === 'month') financeMonth = monthKey(todayStr()); // "This month" jumps back to now
+      renderFinance();
     });
+  });
+  var prevBtn = $('#finPrevMonth'), nextBtn = $('#finNextMonth'), picker = $('#finMonthPicker');
+  if (prevBtn) prevBtn.addEventListener('click', function () {
+    financeMonth = shiftMonth(financeViewMonth(), -1); renderFinance();
+  });
+  if (nextBtn) nextBtn.addEventListener('click', function () {
+    financeMonth = shiftMonth(financeViewMonth(), 1); renderFinance();
+  });
+  if (picker) picker.addEventListener('change', function () {
+    if (/^\d{4}-\d{2}$/.test(picker.value)) { financeMonth = picker.value; renderFinance(); }
   });
   $('#financeForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var kind = $('#finType').value;
-    var dateVal = $('#finDate').value || todayStr();
+    var dateVal = normDateStr($('#finDate').value || todayStr());
     if (!parseD(dateVal)) { alert('Please enter a valid date.'); return; }
     if (kind === 'transfer') {
       var tAmount = parseAmount($('#finAmount').value);
@@ -826,7 +884,7 @@ function renderDashboard() {
   var workouts = todays.filter(function (h) { return (h.workout || 0) > 0; }).length;
   $('#dashHealthSub').textContent = todays.length ? (workouts ? 'includes a workout 💪' : 'no workout logged') : 'log water / sleep / workout';
   // finance (month)
-  var mt = financeTotals(state.finance.filter(function (f) { return monthKey(f.date) === monthKey(t); }));
+  var mt = financeTotals(state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) === monthKey(t); }));
   $('#dashFinance').textContent = money(mt.expense) + ' spent';
   $('#dashFinanceSub').textContent = 'income ' + money(mt.income) + ' · balance ' + money(mt.balance);
   // tasks
@@ -840,7 +898,7 @@ function renderDashboard() {
   var vals = days.map(habitDayPct);
   $('#chartHabitsWeek').innerHTML = state.habits.length ? svgBars(labels, vals) : '<p class="muted">Add a habit to see your week.</p>';
   var byCat = {};
-  state.finance.filter(function (f) { return monthKey(f.date) === monthKey(t); })
+  state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) === monthKey(t); })
     .forEach(function (f) {
       if (f.type === 'expense') byCat[f.category] = (byCat[f.category] || 0) + f.amount;
       else if (f.type === 'transfer' && (f.fee || 0) > 0) byCat['Transfer fees'] = (byCat['Transfer fees'] || 0) + f.fee;
