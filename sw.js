@@ -1,8 +1,9 @@
 /* Personal Tracker service worker — offline app shell, no dependencies.
-   Cache-first for same-origin GET; navigations fall back to cached index.html. */
+   Network-first for same-origin GET; cache is the offline fallback. */
 'use strict';
 
-var CACHE = 'personal-tracker-v1';
+// Bump this on every deploy that changes cached files.
+var CACHE = 'personal-tracker-v2';
 var ASSETS = [
   './',
   './index.html',
@@ -35,38 +36,27 @@ self.addEventListener('activate', function (event) {
   );
 });
 
+// Network-first: a GitHub Pages deploy shows up on the next load,
+// and the cache is only used when offline. Only good responses are cached.
 self.addEventListener('fetch', function (event) {
   var req = event.request;
   if (req.method !== 'GET') return;
   var url;
   try { url = new URL(req.url); } catch (e) { return; }
-  if (url.origin !== self.location.origin) return; // localStorage data never leaves device; don't cache third parties
+  if (url.origin !== self.location.origin) return; // never cache third parties
 
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(CACHE).then(function (cache) { cache.put('./index.html', copy); });
-        return res;
-      }).catch(function () {
-        return caches.match('./index.html').then(function (cached) {
-          return cached || caches.match('./');
-        });
-      })
-    );
-    return;
-  }
-
+  var isNav = req.mode === 'navigate';
   event.respondWith(
-    caches.match(req, { ignoreSearch: false }).then(function (cached) {
-      var network = fetch(req).then(function (res) {
-        if (res && (res.status === 200 || res.status === 0)) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
-        }
-        return res;
-      }).catch(function () { return cached; });
-      return cached || network;
+    fetch(req).then(function (res) {
+      if (res && res.ok) {
+        var copy = res.clone();
+        caches.open(CACHE).then(function (cache) { cache.put(isNav ? './index.html' : req, copy); });
+      }
+      return res;
+    }).catch(function () {
+      return caches.match(isNav ? './index.html' : req).then(function (cached) {
+        return cached || caches.match('./');
+      });
     })
   );
 });

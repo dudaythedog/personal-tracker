@@ -12,7 +12,7 @@ Tabs: **Home (dashboard) · Habits · Health · Finance · Goals & Tasks**
 - **Finance:** income/expense + amount (₱, auto-comma)/category/description/date + payment method (Cash, GCash, Maya, cards, bank) on expenses, monthly income/expense/balance, date filter. **Transfers** (e.g. Maya → GCash) move money between wallets without counting as spending — only the fee counts as an expense. **Wallet balances** on the dashboard show net per payment method, derived from your transactions.
 - **Goals & Tasks:** tasks with due date, priority, done/undone, optional goal link; goal progress % = done ÷ linked tasks.
 - **Data:** export JSON backup, import with Replace/Merge, reset all (double confirm). Corrupted storage is detected and backed up, never crashes.
-- **Design:** mobile-first responsive, auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, labels, keyboard-friendly.
+- **Design:** mobile-first responsive with an app-style bottom tab bar on phones, bottom-sheet dialog for transactions, deep links per tab (`#habits`, `#finance`, …), auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, labels, keyboard-friendly.
 
 ## Files
 
@@ -20,6 +20,7 @@ Tabs: **Home (dashboard) · Habits · Health · Finance · Goals & Tasks**
 |---|---|
 | `index.html` | Structure + all forms/views. Uses relative paths (`./style.css`, `./app.js`) so it works from `username.github.io/repo-name/`. |
 | `style.css` | Theming, layout, responsive cards. |
+| `sw.js` / `manifest.webmanifest` / `icons/` | Offline cache + installable app (PWA). |
 | `app.js` | One `state` object, single `save()`/`load()`, schema `version` + `migrate()`. Small functions per feature. |
 
 Total size is well under 100 KB.
@@ -31,17 +32,17 @@ Total size is well under 100 KB.
    git clone https://github.com/YOUR-USERNAME/personal-tracker.git
    cd personal-tracker
    ```
-2. **Copy** `index.html`, `style.css`, `app.js` (and this `README.md`) into the repo root.
+2. **Copy** everything into the repo root: `index.html`, `style.css`, `app.js`, `sw.js`, `manifest.webmanifest`, the `icons/` folder (and this `README.md`). `sw.js` + `manifest.webmanifest` + `icons/` are required for offline use and Add to Home Screen.
 3. **Push:**
    ```bash
-   git add index.html style.css app.js README.md
+   git add .
    git commit -m "Add personal tracker"
    git push -u origin main
    ```
 4. **Enable Pages:** GitHub repo → **Settings → Pages** → under *Build and deployment*, Source: **Deploy from a branch**, Branch: **main** / **(root)** → Save.
 5. Wait ~1 minute, then open `https://YOUR-USERNAME.github.io/personal-tracker/`.
 
-Updates: edit files, commit, push — Pages redeploys automatically. No build step.
+Updates: edit files, commit, push — Pages redeploys automatically. No build step. The service worker is network-first, so phones pick up the new version on the next load (the cached copy is only used offline). Bump `CACHE` in `sw.js` when you change files so old caches get cleaned up.
 
 > Local preview: just double-click `index.html`, or run `python3 -m http.server` in the folder and open `http://localhost:8000`. No internet needed after first load (there are zero external requests).
 
