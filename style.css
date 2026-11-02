@@ -556,17 +556,17 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .split-item { padding: .5rem .65rem; }
   .split-value { font-size: 1.02rem; }
 
-  /* wallets: 2-column tiles instead of tall rows */
-  #view-finance .wallets { grid-template-columns: 1fr 1fr; gap: .45rem; margin-top: .4rem; }
-  #view-finance .wallet {
+  /* wallets (Home + Finance): 2-column tiles instead of tall rows */
+  .wallets { grid-template-columns: 1fr 1fr; gap: .45rem; margin-top: .4rem; }
+  .wallets .wallet {
     border: 1px solid var(--border); border-radius: 12px; background: var(--card-2);
     padding: .45rem .55rem; gap: .5rem;
   }
-  #view-finance .wallet:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  #view-finance .w-avatar { width: 30px; height: 30px; border-radius: 9px; font-size: .72rem; }
-  #view-finance .w-text { display: grid; gap: 0; }
-  #view-finance .w-name { font-size: .74rem; color: var(--muted); line-height: 1.3; }
-  #view-finance .w-amt { font-size: .92rem; line-height: 1.3; }
+  .wallets .wallet:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .wallets .w-avatar { width: 30px; height: 30px; border-radius: 9px; font-size: .72rem; }
+  .wallets .w-text { display: grid; gap: 0; }
+  .wallets .w-name { font-size: .74rem; color: var(--muted); line-height: 1.3; }
+  .wallets .w-amt { font-size: .92rem; line-height: 1.3; }
 
   /* tighter transaction rows */
   .tx-day + .tx-day { margin-top: .7rem; }
