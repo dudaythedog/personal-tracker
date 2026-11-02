@@ -3,7 +3,7 @@
 'use strict';
 
 // Bump this on every deploy that changes cached files.
-var CACHE = 'personal-tracker-v7';
+var CACHE = 'personal-tracker-v8';
 var ASSETS = [
   './',
   './index.html',

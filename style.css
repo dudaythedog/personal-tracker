@@ -82,6 +82,7 @@ a { color: var(--accent); }
 .big { font-size: 1.6rem; font-weight: 750; margin: .1rem 0; letter-spacing: -.025em; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .pos { color: var(--pos); } .neg { color: var(--neg); }
 .pos-bg { background: var(--pos); } .neg-bg { background: var(--neg); }
+.only-mobile { display: none; } /* shown inside the mobile media query */
 .ico { width: 1.25em; height: 1.25em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.25em; }
 [hidden] { display: none !important; }
 
@@ -541,7 +542,10 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   label, .label { font-size: .8rem; }
   input, select { min-height: 44px; padding: .5rem .75rem; }
   .btn { min-height: 44px; padding: .5rem .95rem; }
-  .btn-sm { min-height: 38px; }
+  /* Re-apply the modifiers the two resets above would otherwise override
+     (same specificity, later in the file wins). */
+  select { padding-right: 2.2rem; } /* keep text clear of the custom ▾ arrow */
+  .btn-sm { min-height: 38px; padding: .4rem .75rem; }
   .btn-icon { min-height: 40px; padding: 0; }
 
   /* full-width, slimmer filters */
@@ -553,7 +557,6 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   /* list rows */
   .check-list, .entry-list { gap: .4rem; }
   .habit-row, .entry, .task-row { padding: .45rem .3rem .45rem .7rem; gap: .6rem; border-radius: 12px; }
-  .check-wrap { width: 40px; height: 40px; }
   .list-head { margin: 1rem 0 .5rem; padding-top: .8rem; }
 
   /* Home */
@@ -565,7 +568,8 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .kpi .big { font-size: 1.18rem; }
   .kpi .muted { font-size: .76rem; }
   .kpi-progress { margin: .25rem 0 .2rem; }
-  .wallet-note { display: none; } /* explained on a wide screen; saves 3 lines on phones */
+  .wallet-note { font-size: .78rem; margin: 0; } /* phones get the one-line version */
+  .only-mobile { display: inline; }
   .week-chart { gap: .35rem; margin-top: .3rem; }
   .wc-col { height: 80px; }
   .hbars { gap: .5rem; margin-top: .3rem; }
@@ -574,7 +578,10 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
 
   /* Habits: input and Add button share one row */
   .inline-form { gap: .5rem; }
-  .inline-form .grow { flex: 1 1 9rem; }
+  /* the input takes the free space on a shared row; if the buttons wrap
+     (e.g. Save + Cancel on a 320px phone) their row stretches full width */
+  .inline-form .grow { flex: 999 1 9rem; }
+  .inline-form .row { flex: 1 0 auto; }
 
   /* Finance */
   #view-finance .page-head { flex-wrap: nowrap; }
@@ -651,7 +658,7 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
 @media (max-width: 380px) {
   body { font-size: 15px; }
   :root { --gutter: .75rem; }
-  .kpi { padding: .8rem; }
+  .kpi { padding: .7rem .75rem; } /* tighter than the ≤639px value, not looser */
   .kpi .big { font-size: 1.08rem; }
   .kpi h3 { font-size: .78rem; }
   .split-value { font-size: 1rem; }
