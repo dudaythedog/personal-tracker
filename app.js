@@ -109,6 +109,8 @@ function defaultState() {
     version: SCHEMA_VERSION,
     finance: [],  // {id,type:'income'|'expense'|'transfer',amount,category,description,payMethod,fee,fromWallet,toWallet,date}
     budgets: [],  // {category, amount} monthly spending limit per expense category
+    openings: [], // {wallet, amount} starting balance per wallet (what it held before the logged transactions)
+    recurring: [],// {id,type,amount,category,payMethod,fromWallet,toWallet,fee,description,day,lastAdded:'YYYY-MM'}
     // Habits/health/goals/tasks from the earlier all-in-one tracker: no UI any more, but kept
     // untouched (and in backups) so nobody's old data is thrown away. null when there is none.
     legacy: null, // {habits:[], health:[], goals:[], tasks:[]}
@@ -155,8 +157,24 @@ function migrate(s) {
   d.finance = arr(s.finance).map(function (f) {
     // note (old field name) folds into description so old backups keep their text
     var t = (f.type === 'income' || f.type === 'transfer') ? f.type : 'expense';
-    return { id: String(f.id || uid()), type: t, amount: Math.abs(Number(f.amount) || 0), category: String(f.category || (t === 'transfer' ? 'Transfer' : 'Other')).slice(0, 40), description: String(f.description || f.note || '').slice(0, 140), payMethod: String(f.payMethod || '').slice(0, 30), fee: Math.abs(Number(f.fee) || 0), fromWallet: String(f.fromWallet || f.payMethod || '').slice(0, 30), toWallet: String(f.toWallet || '').slice(0, 30), date: normDateStr(f.date) };
+    return { id: String(f.id || uid()), type: t, amount: Math.abs(Number(f.amount) || 0), category: String(f.category || (t === 'transfer' ? 'Transfer' : 'Other')).slice(0, 40), description: String(f.description || f.note || '').slice(0, 140), payMethod: String(f.payMethod || '').slice(0, 30), fee: Math.abs(Number(f.fee) || 0), fromWallet: String(f.fromWallet || f.payMethod || '').slice(0, 30), toWallet: String(f.toWallet || '').slice(0, 30), date: normDateStr(f.date), recurId: String(f.recurId || '') };
   }).filter(function (f) { return f.amount > 0 && !!parseD(f.date); });
+  var seenOpen = {};
+  d.openings = arr(s.openings).map(function (o) {
+    return { wallet: String((o && o.wallet) || '').trim().slice(0, 30), amount: Math.round((Number(o && o.amount) || 0) * 100) / 100 };
+  }).filter(function (o) {
+    if (!o.wallet || !o.amount || seenOpen[o.wallet]) return false;
+    seenOpen[o.wallet] = true; return true;
+  });
+  d.recurring = arr(s.recurring).map(function (r) {
+    r = r || {};
+    var t = (r.type === 'income' || r.type === 'transfer') ? r.type : 'expense';
+    return { id: String(r.id || uid()), type: t, amount: Math.round(Math.abs(Number(r.amount) || 0) * 100) / 100,
+      category: String(r.category || (t === 'transfer' ? 'Transfer' : 'Other')).slice(0, 40), payMethod: String(r.payMethod || '').slice(0, 30),
+      fromWallet: String(r.fromWallet || '').slice(0, 30), toWallet: String(r.toWallet || '').slice(0, 30), fee: Math.abs(Number(r.fee) || 0),
+      description: String(r.description || '').slice(0, 140), day: Math.min(31, Math.max(1, Math.round(Number(r.day) || 1))),
+      lastAdded: /^\d{4}-\d{2}$/.test(r.lastAdded || '') ? r.lastAdded : monthKey(todayStr()) };
+  }).filter(function (r) { return r.amount > 0; });
   d.legacy = pickLegacy(s);
   var seenBud = {};
   d.budgets = arr(s.budgets).map(function (b) {
@@ -187,7 +205,7 @@ function legacyCount(l) {
 }
 
 /* ---------- UI helpers ---------- */
-function showMsg(text, isErr, withUndo) {
+function showMsg(text, isErr, withUndo, extraClass) {
   var el = $('#toast');
   if (!el) return;
   if (!withUndo) undoSnap = null; // the Undo button is gone, so drop its snapshot
@@ -199,20 +217,22 @@ function showMsg(text, isErr, withUndo) {
   el.firstChild.textContent = text;
   el.classList.toggle('is-error', !!isErr);
   el.classList.toggle('has-action', !!withUndo);
+  el.classList.toggle('is-warn', extraClass === 'is-warn');
   el.hidden = false;
   if (withUndo) $('#toastUndo').addEventListener('click', undoDelete);
   clearTimeout(dataMsgTimer);
   dataMsgTimer = setTimeout(function () {
     el.hidden = true;
     if (withUndo) undoSnap = null;
-  }, withUndo ? 6000 : isErr ? 6000 : 3500);
+  }, withUndo || isErr || extraClass ? 6000 : 3500);
 }
 /* ---------- delete with undo (instead of "Are you sure?" popups) ---------- */
 var undoSnap = null;
-function snapFinance() { return JSON.stringify({ finance: state.finance, budgets: state.budgets }); }
+var SNAP_KEYS = ['finance', 'budgets', 'openings', 'recurring'];
+function snapFinance() { var o = {}; SNAP_KEYS.forEach(function (k) { o[k] = state[k]; }); return JSON.stringify(o); }
 function restoreFinance(snap) {
   var m = migrate(JSON.parse(snap));
-  state.finance = m.finance; state.budgets = m.budgets;
+  SNAP_KEYS.forEach(function (k) { state[k] = m[k]; });
 }
 function deleteWithUndo(msg, mutate) {
   var snap = snapFinance();
@@ -347,6 +367,7 @@ function walletBalances() {
     if (!(w in bal)) bal[w] = 0;
     bal[w] += v; active[w] = true;
   }
+  state.openings.forEach(function (o) { add(o.wallet, o.amount); });
   state.finance.forEach(function (f) {
     if (f.type === 'income') add(f.payMethod, f.amount);
     else if (f.type === 'transfer') {
@@ -362,10 +383,72 @@ function walletBalances() {
     .map(function (w) { return { wallet: w, balance: bal[w] || 0 }; });
 }
 // Running balance as of the end of month ym: earlier months carry into it.
+// Starting balances count as money you already had, so they are part of what carries over.
+function openingTotal() { return state.openings.reduce(function (a, o) { return a + o.amount; }, 0); }
 function balanceThrough(ym) {
   var before = state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) < ym; });
   var upTo = state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) <= ym; });
-  return { balance: financeTotals(upTo).balance, carried: financeTotals(before).balance };
+  var open = openingTotal();
+  return { balance: open + financeTotals(upTo).balance, carried: open + financeTotals(before).balance };
+}
+// What the logged transactions alone say a wallet holds (no starting balance).
+function txBalance(wallet) {
+  var b = 0;
+  state.finance.forEach(function (f) {
+    if (f.type === 'transfer') {
+      if ((f.fromWallet || 'Other') === wallet) b -= f.amount + (f.fee || 0);
+      if ((f.toWallet || 'Other') === wallet) b += f.amount;
+    } else if ((f.payMethod || 'Other') === wallet) b += f.type === 'income' ? f.amount : -f.amount;
+  });
+  return Math.round(b * 100) / 100;
+}
+function parseSigned(str) { // "-1,234.50" -> -1234.5
+  var t = String(str || '').trim(), neg = /^[-−]/.test(t);
+  var v = parseAmount(t.replace(/^[-−]\s*/, ''));
+  return isNaN(v) ? NaN : (neg ? -v : v);
+}
+function openWalletDialog() {
+  var wallets = PAY_METHODS.slice();
+  walletBalances().forEach(function (r) { if (wallets.indexOf(r.wallet) < 0) wallets.push(r.wallet); });
+  var have = walletBalances().reduce(function (m, r) { m[r.wallet] = r.balance; return m; }, {});
+  $('#walletFields').innerHTML = wallets.map(function (w, i) {
+    var st = WALLET_STYLE[w] || [w.charAt(0).toUpperCase(), '#64748b'];
+    var v = have[w] || 0;
+    return '<li class="bud-field"><label for="wal' + i + '"><span class="w-avatar" style="--wc:' + st[1] + '" aria-hidden="true">' + esc(st[0]) + '</span>' + esc(w) + '</label>' +
+      '<div class="bud-input"><span class="bud-peso" aria-hidden="true">₱</span><input id="wal' + i + '" data-wallet="' + esc(w) + '" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="' + (v ? (v < 0 ? '-' : '') + esc(formatAmount(Math.abs(v))) : '') + '"></div></li>';
+  }).join('');
+  openDialog($('#walletDialog'));
+  try { $('#walletClose').focus({ preventScroll: true }); } catch (e) {}
+}
+function closeWalletDialog() { closeDialog($('#walletDialog')); }
+function initWalletBalances() {
+  $('#walletEdit').addEventListener('click', openWalletDialog);
+  $('#walletClose').addEventListener('click', closeWalletDialog);
+  $('#walletCancel').addEventListener('click', closeWalletDialog);
+  $('#walletDialog').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeWalletDialog(); });
+  $('#walletFields').addEventListener('input', function (e) {
+    var inp = e.target;
+    if (!inp.matches('input')) return;
+    var neg = /^\s*[-−]/.test(inp.value);
+    formatAmountLive(inp);
+    if (neg) inp.value = '-' + inp.value; // card debt / overdraft can be negative
+  });
+  $('#walletForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var out = [], bad = null;
+    $all('#walletFields input').forEach(function (inp) {
+      var t = inp.value.trim();
+      var want = t === '' || t === '-' ? 0 : parseSigned(t);
+      if (isNaN(want)) { bad = bad || inp; return; }
+      var w = inp.getAttribute('data-wallet');
+      var diff = Math.round((want - txBalance(w)) * 100) / 100;
+      if (diff) out.push({ wallet: w, amount: diff });
+    });
+    if (bad) { showMsg('Enter an amount like 3,000 or -1,500.', true); bad.focus(); return; }
+    state.openings = out;
+    save(); closeWalletDialog(); renderAll();
+    showMsg('Wallet balances updated.');
+  });
 }
 function renderFinance() {
   // Summary cards always show the viewed month (defaults to current month),
@@ -477,6 +560,23 @@ function budgetCategories() {
   state.finance.forEach(function (f) { if (f.type === 'expense') add(f.category); });
   if (state.finance.some(function (f) { return f.type === 'transfer' && f.fee > 0; })) add(FEES_CAT);
   return list;
+}
+// "Dining Out: ₱110.00 left this month" for the expense's month, or null if no budget.
+function budgetNote(f) {
+  if (f.type !== 'expense') return null;
+  var limit = budgetFor(f.category);
+  if (!limit) return null;
+  var ym = monthKey(f.date);
+  var hit = spendByCategory(inMonth(ym))[f.category.toLowerCase()];
+  var left = Math.round((limit - (hit ? hit.value : 0)) * 100) / 100;
+  var when = ym === monthKey(todayStr()) ? 'this month' : 'in ' + monthLabel(ym);
+  return { over: left < 0, near: left >= 0 && left <= limit * 0.2,
+    text: f.category + ': ' + (left >= 0 ? money(left) + ' left ' + when : money(-left) + ' over budget ' + when) };
+}
+function savedMsg(f, base) {
+  var n = budgetNote(f);
+  if (!n) { showMsg(base); return; }
+  showMsg(base + ' ' + n.text + '.', n.over, false, n.near ? 'is-warn' : '');
 }
 function budgetFor(cat) {
   var k = cat.toLowerCase();
@@ -830,13 +930,10 @@ function initFinance() {
         description: $('#finDesc').value.trim(),
         date: dateVal
       };
-      if (editingFinanceId) {
-        var ti = state.finance.findIndex(function (x) { return x.id === editingFinanceId; });
-        if (ti >= 0) state.finance[ti] = tobj;
-      } else state.finance.push(tobj);
+      upsertTx(tobj);
       closeFinanceDialog();
       save(); renderAll();
-      showMsg('Transfer saved.');
+      showMsg('Transfer saved' + (tobj.recurId ? ', repeats monthly.' : '.'));
       return;
     }
     var amount = parseAmount($('#finAmount').value);
@@ -853,13 +950,10 @@ function initFinance() {
       payMethod: $('#finPay').value,
       fee: 0, fromWallet: '', toWallet: ''
     };
-    if (editingFinanceId) {
-      var i = state.finance.findIndex(function (x) { return x.id === editingFinanceId; });
-      if (i >= 0) state.finance[i] = obj;
-    } else state.finance.push(obj);
+    upsertTx(obj);
     closeFinanceDialog();
     save(); renderAll();
-    showMsg((isIncome ? 'Income' : 'Expense') + ' of ' + money(obj.amount) + ' saved.');
+    savedMsg(obj, (isIncome ? 'Income' : 'Expense') + ' of ' + money(obj.amount) + ' saved' + (obj.recurId ? ', repeats monthly.' : '.'));
   });
   $('#financeList').addEventListener('click', function (e) {
     var ed = dataFrom(e, 'data-edit-fin');
@@ -876,6 +970,7 @@ function initFinance() {
       $('#finFrom').value = f.fromWallet || f.payMethod || 'Maya';
       $('#finTo').value = f.toWallet || 'GCash';
       $('#finFee').value = formatAmount(Number(f.fee) || 0);
+      $('#finRepeat').checked = !!recurById(f.recurId);
       toggleFinanceType();
       $('#financeFormTitle').textContent = 'Edit transaction';
       $('#financeSubmit').textContent = 'Save';
@@ -887,6 +982,83 @@ function initFinance() {
         state.finance = state.finance.filter(function (x) { return x.id !== del; });
       });
     }
+  });
+}
+
+/* ---------- recurring (monthly) transactions ---------- */
+function recurById(id) { return id ? state.recurring.find(function (r) { return r.id === id; }) || null : null; }
+// Save a transaction and keep its monthly template in sync with the "Repeat every month" switch.
+function upsertTx(obj) {
+  var prev = editingFinanceId ? state.finance.find(function (x) { return x.id === editingFinanceId; }) : null;
+  var tpl = recurById(prev && prev.recurId);
+  if ($('#finRepeat').checked) {
+    if (!tpl) { tpl = { id: uid(), lastAdded: monthKey(obj.date) }; state.recurring.push(tpl); }
+    ['type', 'amount', 'category', 'payMethod', 'fromWallet', 'toWallet', 'fee', 'description'].forEach(function (k) { tpl[k] = obj[k]; });
+    tpl.day = parseD(obj.date).getDate();
+    if (monthKey(obj.date) > tpl.lastAdded) tpl.lastAdded = monthKey(obj.date);
+    obj.recurId = tpl.id;
+  } else {
+    if (tpl) state.recurring = state.recurring.filter(function (r) { return r !== tpl; });
+    obj.recurId = '';
+  }
+  if (prev) state.finance[state.finance.indexOf(prev)] = obj; else state.finance.push(obj);
+}
+function daysIn(ym) { return new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate(); }
+function dueDate(r, ym) { return ym + '-' + String(Math.min(r.day, daysIn(ym))).padStart(2, '0'); }
+// The next month this template still has to be added for (after lastAdded).
+function nextDue(r) { var ym = shiftMonth(r.lastAdded, 1); return { ym: ym, date: dueDate(r, ym) }; }
+function recurTitle(r) { return r.type === 'transfer' ? 'Transfer ' + (r.fromWallet || '?') + ' → ' + (r.toWallet || '?') : (r.description || r.category); }
+function ordinal(n) { var v = n % 100; return n + (v >= 11 && v <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'); }
+function renderRecurring() {
+  var t = todayStr();
+  var due = state.recurring.map(function (r) { return { r: r, n: nextDue(r) }; })
+    .filter(function (x) { return x.n.date <= t; })
+    .sort(function (a, b) { return a.n.date < b.n.date ? -1 : 1; });
+  var box = $('#recurDue');
+  box.hidden = !due.length;
+  $('#recurDueList').innerHTML = due.map(function (x) {
+    var r = x.r, inc = r.type === 'income';
+    var amt = r.type === 'transfer' ? money(r.amount) : (inc ? '+' : '−') + money(r.amount);
+    return '<li class="due-row"><div class="due-text"><span class="due-title">' + esc(recurTitle(r)) + '</span>' +
+      '<span class="due-meta">' + esc(r.type === 'transfer' ? 'Transfer' : r.category) + ' · due ' + esc(niceDate(x.n.date)) + '</span></div>' +
+      '<span class="amt ' + (r.type === 'transfer' ? '' : inc ? 'pos' : 'neg') + '">' + esc(amt) + '</span>' +
+      '<div class="due-actions"><button type="button" class="btn btn-sm" data-recur-add="' + esc(r.id) + '">Add</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-recur-skip="' + esc(r.id) + '">Skip</button></div></li>';
+  }).join('');
+  $('#recurTitle').textContent = due.length === 1 ? '1 repeating payment is due' : due.length + ' repeating payments are due';
+  // all templates, in the Recurring card
+  var list = state.recurring.slice().sort(function (a, b) { return a.day - b.day; });
+  $('#recurCard').hidden = !list.length;
+  $('#recurList').innerHTML = list.map(function (r) {
+    var inc = r.type === 'income';
+    return '<li class="rec-row"><div class="due-text"><span class="due-title">' + esc(recurTitle(r)) + '</span>' +
+      '<span class="due-meta">Every ' + esc(ordinal(r.day)) + ' · next ' + esc(niceDate(nextDue(r).date)) + '</span></div>' +
+      '<span class="amt ' + (r.type === 'transfer' ? '' : inc ? 'pos' : 'neg') + '">' + esc(money(r.amount)) + '</span>' +
+      '<button type="button" class="btn btn-ghost btn-icon" data-recur-stop="' + esc(r.id) + '" aria-label="Stop repeating ' + esc(recurTitle(r)) + '"><svg class="ico" aria-hidden="true"><use href="#i-close"/></svg></button></li>';
+  }).join('');
+}
+function initRecurring() {
+  $('#recurDueList').addEventListener('click', function (e) {
+    var addId = dataFrom(e, 'data-recur-add'), skipId = dataFrom(e, 'data-recur-skip');
+    var r = recurById(addId || skipId);
+    if (!r) return;
+    var n = nextDue(r);
+    r.lastAdded = n.ym;
+    if (skipId) { save(); renderAll(); showMsg('Skipped ' + recurTitle(r) + ' for ' + monthLabel(n.ym) + '.'); return; }
+    var f = { id: uid(), type: r.type, amount: r.amount, category: r.category, description: r.description, payMethod: r.payMethod,
+      fee: r.type === 'transfer' ? r.fee : 0, fromWallet: r.type === 'transfer' ? r.fromWallet : '', toWallet: r.type === 'transfer' ? r.toWallet : '',
+      date: n.date, recurId: r.id };
+    state.finance.push(f);
+    save(); renderAll();
+    savedMsg(f, 'Added ' + recurTitle(r) + ' (' + money(r.amount) + ').');
+  });
+  $('#recurList').addEventListener('click', function (e) {
+    var id = dataFrom(e, 'data-recur-stop');
+    var r = recurById(id);
+    if (!r) return;
+    deleteWithUndo('Stopped repeating ' + recurTitle(r) + '.', function () {
+      state.recurring = state.recurring.filter(function (x) { return x.id !== id; });
+    });
   });
 }
 
@@ -916,7 +1088,7 @@ var WALLET_STYLE = { // [initials, color]
 function paintWallets(box, emptyEl, totalEl) {
   if (!box) return;
   var rows = walletBalances();
-  var hasActivity = state.finance.length > 0;
+  var hasActivity = state.finance.length > 0 || state.openings.length > 0;
   if (emptyEl) emptyEl.style.display = hasActivity ? 'none' : '';
   box.style.display = hasActivity ? '' : 'none';
   var total = rows.reduce(function (a, r) { return a + r.balance; }, 0);
@@ -965,9 +1137,11 @@ function buildExport() {
     app: 'personal-tracker',
     version: SCHEMA_VERSION,
     exportDate: new Date().toISOString(),
-    data: state.legacy
-      ? { finance: state.finance, budgets: state.budgets, legacy: state.legacy }
-      : { finance: state.finance, budgets: state.budgets }
+    data: (function () {
+      var d = { finance: state.finance, budgets: state.budgets, openings: state.openings, recurring: state.recurring };
+      if (state.legacy) d.legacy = state.legacy;
+      return d;
+    })()
   };
 }
 function downloadJson(obj, filename) {
@@ -987,7 +1161,7 @@ function validateImport(obj) {
     if (!Array.isArray(data[name])) return null;
     return data[name];
   }
-  var names = ['habits', 'health', 'finance', 'goals', 'tasks', 'budgets'];
+  var names = ['habits', 'health', 'finance', 'goals', 'tasks', 'budgets', 'openings', 'recurring'];
   for (var i = 0; i < names.length; i++) {
     if (checkArr(names[i]) === null) return { ok: false, error: 'Field "' + names[i] + '" must be an array.' };
   }
@@ -995,6 +1169,7 @@ function validateImport(obj) {
   var candidate = {
     version: Number(obj.version) || SCHEMA_VERSION,
     finance: data.finance || [], budgets: data.budgets || [],
+    openings: data.openings || [], recurring: data.recurring || [],
     legacy: data.legacy || null,
     habits: data.habits, health: data.health, goals: data.goals, tasks: data.tasks, // backups from the old all-in-one app
     settings: { theme: currentTheme() }
@@ -1016,6 +1191,14 @@ function mergeStates(base, incoming) {
     if (!row.id || ids[row.id]) row.id = uid();
     ids[row.id] = true;
     out.finance.push(row);
+  });
+  // starting balances: keep yours, take the file's for wallets you haven't set
+  (incoming.openings || []).forEach(function (o) {
+    if (!out.openings.some(function (x) { return x.wallet === o.wallet; })) out.openings.push({ wallet: o.wallet, amount: o.amount });
+  });
+  // repeating payments: add the ones you don't have (same id = same template)
+  (incoming.recurring || []).forEach(function (r) {
+    if (!out.recurring.some(function (x) { return x.id === r.id; })) out.recurring.push(JSON.parse(JSON.stringify(r)));
   });
   // old habits/health/goals/tasks: keep yours; only take the file's if you have none
   // (merging them would pile up hidden duplicates nobody can see or delete)
@@ -1044,7 +1227,7 @@ function initDataButtons() {
   $('#exportBtnTop').addEventListener('click', doExport);
   $('#resetBtn').addEventListener('click', function () {
     var old = legacyCount(state.legacy);
-    if (!confirm('Delete ALL local data: transactions, budgets' + (old ? ' and ' + old + ' old habit/health/goal/task records from the earlier version' : '') +
+    if (!confirm('Delete ALL local data: transactions, budgets, wallet balances, repeating payments' + (old ? ' and ' + old + ' old habit/health/goal/task records from the earlier version' : '') +
       '? This cannot be undone.\n\nTip: Download a backup first.')) return;
     if (!confirm('Really erase everything? Last chance!')) return;
     state = defaultState();
@@ -1206,7 +1389,7 @@ function initPWA() {
 var renderedDay = todayStr();
 function renderAll() {
   renderedDay = todayStr();
-  renderFinance(); renderWallets();
+  renderFinance(); renderWallets(); renderRecurring();
   renderBackupNudge(); updateStorageInfo();
 }
 // Installed apps stay open for days: when we come back after midnight,
@@ -1222,7 +1405,7 @@ function checkDayRollover() {
 document.addEventListener('DOMContentLoaded', function () {
   load();
   initTheme();
-  initFinance(); initBudgets(); initDataButtons();
+  initFinance(); initBudgets(); initWalletBalances(); initRecurring(); initDataButtons();
   initPWA();
   renderAll();
   document.addEventListener('visibilitychange', function () {

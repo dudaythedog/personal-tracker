@@ -36,6 +36,7 @@
     <symbol id="i-in" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M6 13l6 6 6-6"/></symbol>
     <symbol id="i-out" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></symbol>
     <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3.5-3.5"/><path d="M20 16H6l3.5 3.5"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 2.5l3 3-3 3"/><path d="M4 11.5V10a4.5 4.5 0 0 1 4.5-4.5H20"/><path d="M7 21.5l-3-3 3-3"/><path d="M20 12.5V14a4.5 4.5 0 0 1-4.5 4.5H4"/></symbol>
     <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
   </defs>
 </svg>
@@ -86,6 +87,10 @@
         <button id="backupNudgeLater" type="button" class="btn btn-ghost btn-sm">Later</button>
       </div>
     </div>
+    <div id="recurDue" class="card recur-due" role="region" aria-labelledby="recurTitle" hidden>
+      <h3 class="recur-title"><svg class="ico" aria-hidden="true"><use href="#i-repeat"/></svg> <span id="recurTitle">Repeating payments due</span></h3>
+      <ul id="recurDueList" class="due-list"></ul>
+    </div>
     <div class="toolbar fin-toolbar">
       <div class="seg" role="group" aria-label="Finance date filter">
         <button type="button" data-range="month" class="seg-btn is-active">Month</button>
@@ -117,7 +122,8 @@
         </div>
         <p class="muted small wallet-note"><span class="hide-mobile">All-time balance per payment method. Transfers move money between wallets; fees count as spending.</span><span class="only-mobile">Transfers move money; fees count as spending.</span></p>
         <div id="finWalletBalances" class="wallets"></div>
-        <p id="finWalletEmpty" class="empty">No wallet activity yet.</p>
+        <p id="finWalletEmpty" class="empty">No wallet activity yet. Set what each wallet holds now to start.</p>
+        <button type="button" class="btn btn-secondary btn-sm budget-edit" id="walletEdit">Set balances</button>
       </article>
     </div>
     <dialog id="financeDialog" aria-labelledby="financeFormTitle">
@@ -236,6 +242,10 @@
           <label for="finDesc">Description <span class="muted-sm">(optional)</span></label>
           <input id="finDesc" type="text" maxlength="140" autocomplete="off">
         </div>
+        <label class="switch-row form-span" for="finRepeat">
+          <span class="switch-text"><svg class="ico" aria-hidden="true"><use href="#i-repeat"/></svg> Repeat every month <span class="muted-sm">(same day)</span></span>
+          <input id="finRepeat" type="checkbox" class="switch" role="switch">
+        </label>
         <div class="row form-span dialog-actions">
           <button type="button" class="btn btn-danger" id="financeDelete" hidden><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg> <span>Delete</span></button>
           <span class="spacer"></span>
@@ -276,6 +286,28 @@
         </div>
       </form>
     </dialog>
+    <dialog id="walletDialog" aria-labelledby="walletTitle">
+      <div class="dialog-head">
+        <h3 id="walletTitle">Wallet balances</h3>
+        <button type="button" id="walletClose" class="btn btn-ghost btn-icon" aria-label="Close dialog"><svg class="ico" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+      <form id="walletForm" novalidate>
+        <p class="muted small budget-hint">Type what each wallet actually has right now (use a minus for card debt). Your transactions stay as they are; the difference is saved as the wallet's starting balance.</p>
+        <ul id="walletFields" class="bud-fields wallet-fields"></ul>
+        <div class="row dialog-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="walletCancel">Cancel</button>
+          <button type="submit" class="btn" id="walletSave">Save</button>
+        </div>
+      </form>
+    </dialog>
+    <article class="card" id="recurCard" hidden>
+      <div class="card-head">
+        <h3>Repeats monthly</h3>
+        <span class="muted-sm">Turn on in a transaction</span>
+      </div>
+      <ul id="recurList" class="due-list"></ul>
+    </article>
     <article class="card">
       <div class="card-head">
         <h3>Transactions</h3>

@@ -9,8 +9,9 @@ One page: balance, wallets, budgets, spending by category and transactions.
 - **Transactions:** income / expense / transfer with amount (₱, auto-comma), category (on-screen picker with presets plus your own), payment method (Cash, GCash, Maya, cards, bank), date and description. Grouped by day; tap a row to edit. Month / Week / Today / All filter and a month navigator.
 - **Balance:** month income and expenses, plus a balance that carries over from earlier months.
 - **Transfers** (e.g. Maya → GCash) move money between wallets without counting as spending; only the fee counts as an expense.
-- **Wallets:** all-time balance per payment method, derived from your transactions.
-- **Budgets:** a monthly limit per expense category (and transfer fees), showing what is left for the viewed month (amber at 80%, red when over).
+- **Wallets:** all-time balance per payment method, derived from your transactions plus an optional starting balance. **Set balances** lets you type what each wallet really holds now (minus for card debt); the difference is saved as that wallet's starting balance, so Wallets and Balance match your real accounts.
+- **Budgets:** a monthly limit per expense category (and transfer fees), showing what is left for the viewed month (amber at 80%, red when over). Saving an expense in a budgeted category tells you what is left, e.g. "Dining Out: ₱110.00 left this month" (amber when nearly used up, red when over).
+- **Repeats monthly:** turn on "Repeat every month" in a transaction (expense, income or transfer). On that day each month a "due" card asks you to **Add** or **Skip** it; day 31 falls on the last day of shorter months. The Repeats monthly card lists them and stops one with ×.
 - **Spending by category** for the viewed month.
 - **Data:** a reminder when you have not backed up in 14 days (or ever; "Later" snoozes 3 days), JSON backup download, import with Replace/Merge, reset all (double confirm). Deleting a transaction shows an **Undo** toast instead of a confirm popup. Corrupted storage is detected and backed up, never crashes.
 - **Design:** mobile-first (tuned for ~384px phones like the Galaxy S23 Ultra), floating + button, bottom-sheet dialogs with sticky actions, auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, keyboard-friendly. Zero dependencies and no build step.
@@ -58,7 +59,7 @@ Updates: edit files, commit, push — Pages redeploys automatically. No build st
   "app": "personal-tracker",
   "version": 1,
   "exportDate": "2026-10-04T12:00:00.000Z",
-  "data": { "finance": [], "budgets": [] }
+  "data": { "finance": [], "budgets": [], "openings": [], "recurring": [] }
 }
 ```
 
