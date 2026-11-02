@@ -548,6 +548,9 @@ function renderBudgets(ym, spent) {
   flag.hidden = !over && !near;
   flag.textContent = over ? over + ' over' : near ? near + ' near limit' : '';
   flag.classList.toggle('is-warn', !over && near > 0);
+  $('#insightsSub').textContent = !rows.length ? 'Set monthly limits and see where your money goes'
+    : totSpent <= totLimit ? money(totLimit - totSpent) + ' left of ' + money(totLimit) + ' · ' + monthLabel(ym)
+    : money(totSpent - totLimit) + ' over ' + money(totLimit) + ' · ' + monthLabel(ym);
   $('#budgetList').innerHTML = rows.map(function (r) {
     var cls = r.pct > 1 ? 'is-over' : r.pct >= 0.8 ? 'is-warn' : '';
     var left = r.limit - r.spent;
