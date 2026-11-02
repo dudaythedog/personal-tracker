@@ -514,6 +514,12 @@ function walletBalances() {
   return PAY_METHODS.filter(function (w) { return active[w] || PINNED.indexOf(w) >= 0; }).concat(extra)
     .map(function (w) { return { wallet: w, balance: bal[w] || 0 }; });
 }
+// Running balance as of the end of month ym: earlier months carry into it.
+function balanceThrough(ym) {
+  var before = state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) < ym; });
+  var upTo = state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) <= ym; });
+  return { balance: financeTotals(upTo).balance, carried: financeTotals(before).balance };
+}
 function renderFinance() {
   // Summary cards always show the viewed month (defaults to current month),
   // so September income can never leak into the October total.
@@ -522,12 +528,21 @@ function renderFinance() {
   var mt = financeTotals(monthItems);
   $('#finIncome').textContent = money(mt.income);
   $('#finExpense').textContent = money(mt.expense);
-  $('#finBalance').textContent = money(mt.balance);
+  // Balance carries over: everything up to the end of the viewed month,
+  // so October's leftover income still counts when spending in November.
+  var bt = balanceThrough(viewMonth);
+  var balEl = $('#finBalance');
+  balEl.textContent = money(bt.balance);
+  balEl.classList.toggle('neg', bt.balance < 0);
   var mLabel = monthLabel(viewMonth);
-  ['finIncomeMonth', 'finExpenseMonth', 'finBalanceMonth'].forEach(function (id) {
+  ['finIncomeMonth', 'finExpenseMonth'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.textContent = '(' + mLabel + ')';
   });
+  var bm = document.getElementById('finBalanceMonth');
+  if (bm) bm.textContent = '(end of ' + mLabel + ')';
+  var bs = document.getElementById('finBalanceSub');
+  if (bs) bs.textContent = 'carried over ' + money(bt.carried) + ' · ' + mLabel + ' net ' + money(mt.balance);
   // Keep the month navigator in sync; only relevant in month mode.
   var picker = $('#finMonthPicker');
   if (picker && picker.value !== viewMonth) picker.value = viewMonth;
@@ -963,7 +978,7 @@ function renderDashboard() {
   // finance (month)
   var mt = financeTotals(state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) === monthKey(t); }));
   $('#dashFinance').textContent = money(mt.expense);
-  $('#dashFinanceSub').textContent = 'income ' + money(mt.income) + ' · balance ' + money(mt.balance);
+  $('#dashFinanceSub').textContent = 'income ' + money(mt.income) + ' · balance ' + money(balanceThrough(monthKey(t)).balance);
   // tasks
   var open = state.tasks.filter(function (x) { return !x.done; }).length;
   var overdue = state.tasks.filter(function (x) { return !x.done && x.due && x.due < t; }).length;
