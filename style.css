@@ -521,6 +521,46 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   box-shadow: 0 10px 30px rgba(0, 0, 0, .25); animation: toast-in .22s ease-out;
 }
 .toast.is-error { background: var(--neg); color: #fff; }
+.toast.has-action { display: flex; align-items: center; gap: .9rem; padding: .35rem .4rem .35rem 1.1rem; }
+.toast[hidden] { display: none; }
+.toast-undo {
+  font: inherit; font-weight: 750; color: color-mix(in srgb, var(--accent) 45%, var(--bg));
+  background: transparent; border: 0; border-radius: 10px; padding: 0 .85rem; min-height: 40px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .04em; font-size: .85rem;
+}
+.toast-undo:hover, .toast-undo:focus-visible { background: color-mix(in srgb, var(--bg) 14%, transparent); outline: none; }
+
+/* ---------- backup reminder (Home) ---------- */
+.backup-nudge {
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--border));
+  background: color-mix(in srgb, var(--warn) 7%, var(--card));
+}
+.backup-nudge[hidden] { display: none; }
+.bn-ico { font-size: 1.5rem; line-height: 1; flex: none; }
+.bn-text { display: grid; gap: .1rem; flex: 1 1 14rem; min-width: 0; }
+.bn-actions { display: flex; gap: .4rem; flex: none; margin-left: auto; }
+
+/* ---------- budgets (Finance) ---------- */
+.budgets { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
+.budgets:empty { display: none; }
+.bud-top { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.bud-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bud-left { font-weight: 700; font-size: .9rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bud-bar { height: 8px; margin-top: .35rem; }
+.bud-sub { margin: .25rem 0 0; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.budget.is-warn .bud-bar > span { background: var(--warn); }
+.budget.is-warn .bud-left { color: var(--warn); }
+.budget.is-over .bud-bar > span { background: var(--neg); }
+.budget.is-over .bud-left { color: var(--neg); }
+.budget-edit { margin-top: .8rem; }
+.budget-hint { margin: 0 0 .6rem; }
+.bud-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.bud-field { display: grid; grid-template-columns: minmax(0, 1fr) 9.5rem; align-items: center; gap: .6rem; }
+.bud-field label { font-weight: 600; font-size: .9rem; overflow-wrap: anywhere; }
+.bud-input { position: relative; }
+.bud-peso { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.bud-input input { padding-left: 1.6rem; text-align: right; font-variant-numeric: tabular-nums; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } }
 
 .footer { margin-top: 1.75rem; text-align: center; font-size: .78rem; }
@@ -563,6 +603,8 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .tab.is-active .ico { stroke-width: 2.3; }
   .container { padding-bottom: calc(var(--nav-h) + 2rem + env(safe-area-inset-bottom)); }
   .toast { bottom: calc(var(--nav-h) + .75rem + env(safe-area-inset-bottom)); }
+  /* on Finance, sit above the round + button instead of covering it */
+  body:has(#view-finance:not([hidden])) .toast { bottom: calc(var(--nav-h) + 56px + 1.6rem + env(safe-area-inset-bottom)); }
 
   /* ---- Compact spacing for ~384px phones (Galaxy S23 Ultra) on every page ---- */
   .page-head { margin: .9rem 0 .7rem; }
@@ -709,6 +751,18 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .dialog-actions .btn { flex: 1 1 0; }
   .dialog-actions .spacer { display: none; }
   .dialog-actions #financeDelete { flex: 0 0 auto; padding: 0 .85rem; }
+
+  /* backup reminder + budgets on ~384px phones */
+  .backup-nudge { gap: .45rem .65rem; padding: .7rem .8rem; }
+  .bn-ico { font-size: 1.3rem; }
+  .bn-text { flex-basis: 12rem; }
+  .bn-text .muted-sm { font-size: .78rem; }
+  .bn-actions { width: 100%; }
+  .bn-actions .btn { flex: 1 1 0; }
+  .budgets { gap: .65rem; }
+  .budget-edit { width: 100%; margin-top: .65rem; }
+  .bud-field { grid-template-columns: minmax(0, 1fr) 8.5rem; }
+  .bud-input input { min-height: 42px; }
 }
 @keyframes sheet-up { from { transform: translateY(60px); opacity: .5; } }
 

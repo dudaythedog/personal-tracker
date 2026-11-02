@@ -119,6 +119,7 @@ function defaultState() {
     finance: [],  // {id,type:'income'|'expense',amount,category,description,payMethod,date}
     goals: [],    // {id,title,deadline,created}
     tasks: [],    // {id,title,due,priority,done,goalId,created}
+    budgets: [],  // {category, amount} monthly spending limit per expense category
     settings: { theme: 'auto' }
   };
 }
@@ -126,12 +127,15 @@ var state = defaultState();
 var dataMsgTimer = null;
 
 function save() {
+  undoSnap = null; // any later change makes the old snapshot unsafe to restore
   try {
     state.version = SCHEMA_VERSION;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     updateStorageInfo();
+    return true;
   } catch (e) {
     showMsg('Could not save (storage full or blocked). ' + (e && e.message ? e.message : ''), true);
+    return false;
   }
 }
 function load() {
@@ -173,6 +177,14 @@ function migrate(s) {
   d.tasks = arr(s.tasks).filter(function (t) { return t && typeof t.title === 'string'; }).map(function (t) {
     return { id: String(t.id || uid()), title: String(t.title).slice(0, 140), due: t.due || '', priority: ['low', 'medium', 'high'].indexOf(t.priority) >= 0 ? t.priority : 'medium', done: !!t.done, goalId: t.goalId || '', created: t.created || todayStr() };
   });
+  var seenBud = {};
+  d.budgets = arr(s.budgets).map(function (b) {
+    return { category: String((b && b.category) || '').trim().slice(0, 40), amount: Math.round(Math.abs(Number(b && b.amount) || 0) * 100) / 100 };
+  }).filter(function (b) {
+    var k = b.category.toLowerCase();
+    if (!b.category || !(b.amount > 0) || seenBud[k]) return false;
+    seenBud[k] = true; return true;
+  });
   if (s.settings && typeof s.settings.theme === 'string') d.settings.theme = s.settings.theme;
   d.version = SCHEMA_VERSION;
   return d;
@@ -184,19 +196,50 @@ function numOrNull(v) {
 }
 
 /* ---------- UI helpers ---------- */
-function showMsg(text, isErr) {
+function showMsg(text, isErr, withUndo) {
   var el = $('#toast');
   if (!el) return;
-  el.textContent = text;
+  if (!withUndo) undoSnap = null; // the Undo button is gone, so drop its snapshot
+  // A modal <dialog> sits in the top layer above everything; show the toast inside it
+  // so messages like "Pick a category." aren't hidden behind the sheet.
+  var host = document.querySelector('dialog[open]') || document.body;
+  if (el.parentNode !== host) host.appendChild(el);
+  el.innerHTML = '<span class="toast-text"></span>' + (withUndo ? '<button type="button" class="toast-undo" id="toastUndo">Undo</button>' : '');
+  el.firstChild.textContent = text;
   el.classList.toggle('is-error', !!isErr);
+  el.classList.toggle('has-action', !!withUndo);
   el.hidden = false;
+  if (withUndo) $('#toastUndo').addEventListener('click', undoDelete);
   clearTimeout(dataMsgTimer);
-  dataMsgTimer = setTimeout(function () { el.hidden = true; }, isErr ? 6000 : 3500);
+  dataMsgTimer = setTimeout(function () {
+    el.hidden = true;
+    if (withUndo) undoSnap = null;
+  }, withUndo ? 6000 : isErr ? 6000 : 3500);
+}
+/* ---------- delete with undo (instead of "Are you sure?" popups) ---------- */
+var undoSnap = null;
+function deleteWithUndo(msg, mutate) {
+  var snap = JSON.stringify(state);
+  mutate();
+  if (!save()) { // keep screen and storage in sync; save() already showed the error
+    state = migrate(JSON.parse(snap)); renderAll(); return;
+  }
+  renderAll();
+  undoSnap = snap; // armed after save(), which clears it
+  showMsg(msg, false, true);
+}
+function undoDelete() {
+  if (!undoSnap) return;
+  var snap = undoSnap;
+  try { state = migrate(JSON.parse(snap)); } catch (e) { return; }
+  save(); renderAll();
+  showMsg('Restored.');
 }
 function updateStorageInfo() {
   try {
     var bytes = (localStorage.getItem(STORE_KEY) || '').length;
-    $('#storageInfo').textContent = (bytes / 1024).toFixed(1) + ' KB stored locally';
+    var last = lsNum(BACKUP_KEY);
+    $('#storageInfo').textContent = (bytes / 1024).toFixed(1) + ' KB stored locally · ' + (last ? 'backed up ' + daysAgoText(last) : 'not backed up yet');
   } catch (e) { /* private mode */ }
 }
 
@@ -346,9 +389,10 @@ function initHabits() {
       $('#habitCancel').hidden = false;
     }
     if (del) {
-      if (!confirm('Delete this habit and its history?')) return;
-      state.habits = state.habits.filter(function (x) { return x.id !== del; });
-      save(); renderAll();
+      if (editingHabitId === del) $('#habitCancel').click();
+      deleteWithUndo('Habit deleted.', function () {
+        state.habits = state.habits.filter(function (x) { return x.id !== del; });
+      });
     }
   });
 }
@@ -433,9 +477,10 @@ function initHealth() {
       $('#healthDate').focus({ preventScroll: true });
     }
     if (del) {
-      if (!confirm('Delete this health entry?')) return;
-      state.health = state.health.filter(function (x) { return x.id !== del; });
-      save(); renderAll();
+      if (editingHealthId === del) $('#healthCancel').click();
+      deleteWithUndo('Health entry deleted.', function () {
+        state.health = state.health.filter(function (x) { return x.id !== del; });
+      });
     }
   });
 }
@@ -482,11 +527,16 @@ function formatAmountLive(input) {
     try { input.setSelectionRange(i, i); } catch (e) {}
   }
 }
+// 1234.5 -> "1,234.50" (minDecimals 2) or "1,234.5" (minDecimals 0)
+function formatAmount(v, minDecimals) {
+  var min = minDecimals == null ? 2 : minDecimals;
+  try { return Number(v).toLocaleString('en-PH', { minimumFractionDigits: min, maximumFractionDigits: 2 }); }
+  catch (e) { return min ? Number(v).toFixed(2) : String(Math.round(v * 100) / 100); }
+}
 function formatAmountBlur(input) {
   var v = parseAmount(input.value);
   if (isNaN(v)) return; // leave invalid text so submit can warn
-  try { input.value = v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  catch (e) { input.value = v.toFixed(2); }
+  input.value = formatAmount(v);
 }
 function financeTotals(list) {
   var inc = 0, exp = 0;
@@ -577,6 +627,98 @@ function renderFinance() {
       '<span class="amt">' + (net > 0 ? '+' : '') + esc(money(net)) + '</span></div>' +
       '<ul class="tx-list">' + g.items.map(txRow).join('') + '</ul></li>';
   }).join('');
+  renderBudgets();
+}
+/* ---------- monthly budgets per expense category ---------- */
+// Spending per category in a month: [{ label, value }]; categories match ignoring case,
+// and transfer fees count as spending (like the monthly Expenses total).
+var FEES_CAT = 'Transfer fees';
+function spendByCategory(ym) {
+  var by = {};
+  state.finance.forEach(function (f) {
+    if (monthKey(normDateStr(f.date)) !== ym) return;
+    var label, amt;
+    if (f.type === 'expense') { label = f.category; amt = f.amount; }
+    else if (f.type === 'transfer' && (f.fee || 0) > 0) { label = FEES_CAT; amt = f.fee; }
+    else return;
+    var k = label.toLowerCase();
+    if (!by[k]) by[k] = { label: label, value: 0 };
+    by[k].value += amt;
+  });
+  return by; // keyed by lower-case category
+}
+function renderBudgets() {
+  // The month navigator only shows in Month mode; otherwise budgets track this month.
+  var ym = financeRange === 'month' ? financeViewMonth() : monthKey(todayStr());
+  var spent = spendByCategory(ym);
+  $('#budgetMonth').textContent = '· ' + monthLabel(ym);
+  var rows = state.budgets.map(function (b) {
+    var hit = spent[b.category.toLowerCase()], s = hit ? hit.value : 0;
+    return { cat: b.category, limit: b.amount, spent: s, pct: s / b.amount };
+  }).sort(function (a, b) { return b.pct - a.pct; });
+  $('#budgetEmpty').hidden = rows.length > 0;
+  $('#budgetEdit').textContent = rows.length ? 'Edit' : 'Set budgets';
+  var totLimit = 0, totSpent = 0;
+  rows.forEach(function (r) { totLimit += r.limit; totSpent += r.spent; });
+  var head = $('#budgetTotal');
+  head.textContent = rows.length ? (totSpent <= totLimit ? money(totLimit - totSpent) + ' left' : money(totSpent - totLimit) + ' over') : '';
+  head.classList.toggle('neg', totSpent > totLimit);
+  $('#budgetList').innerHTML = rows.map(function (r) {
+    var cls = r.pct > 1 ? 'is-over' : r.pct >= 0.8 ? 'is-warn' : '';
+    var left = r.limit - r.spent;
+    return '<li class="budget ' + cls + '">' +
+      '<div class="bud-top"><span class="bud-name">' + esc(catIcon(r.cat)) + ' ' + esc(r.cat) + '</span>' +
+      '<span class="bud-left">' + (left >= 0 ? esc(money(left)) + ' left' : esc(money(-left)) + ' over') + '</span></div>' +
+      '<div class="progress bud-bar" role="progressbar" aria-label="' + esc(r.cat) + ' budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(r.pct * 100) + '">' +
+      '<span style="width:' + Math.min(100, Math.round(r.pct * 100)) + '%"></span></div>' +
+      '<p class="bud-sub">' + esc(money(r.spent)) + ' of ' + esc(money(r.limit)) + ' · ' + Math.round(r.pct * 100) + '%</p></li>';
+  }).join('');
+}
+// Expense categories to offer in the budget editor: presets, your custom ones, and any already budgeted.
+function budgetCategories() {
+  var list = CAT_PRESETS.expense.map(function (c) { return c[0]; });
+  function add(name) { if (name && !list.some(function (x) { return x.toLowerCase() === name.toLowerCase(); })) list.splice(list.length - 1, 0, name); }
+  state.budgets.forEach(function (b) { add(b.category); });
+  state.finance.forEach(function (f) { if (f.type === 'expense') add(f.category); });
+  if (state.finance.some(function (f) { return f.type === 'transfer' && f.fee > 0; })) add(FEES_CAT);
+  return list;
+}
+function budgetFor(cat) {
+  var k = cat.toLowerCase();
+  for (var i = 0; i < state.budgets.length; i++) if (state.budgets[i].category.toLowerCase() === k) return state.budgets[i].amount;
+  return 0;
+}
+function openBudgetDialog() {
+  $('#budgetFields').innerHTML = budgetCategories().map(function (c, i) {
+    var v = budgetFor(c);
+    var val = v ? formatAmount(v, 0) : '';
+    return '<li class="bud-field"><label for="bud' + i + '">' + esc(catIcon(c)) + ' ' + esc(c) + '</label>' +
+      '<div class="bud-input"><span class="bud-peso" aria-hidden="true">₱</span><input id="bud' + i + '" data-cat="' + esc(c) + '" type="text" inputmode="decimal" autocomplete="off" placeholder="No limit" value="' + esc(val) + '"></div></li>';
+  }).join('');
+  openDialog($('#budgetDialog'));
+  try { $('#budgetClose').focus({ preventScroll: true }); } catch (e) {}
+}
+function closeBudgetDialog() { closeDialog($('#budgetDialog')); }
+function initBudgets() {
+  $('#budgetEdit').addEventListener('click', openBudgetDialog);
+  $('#budgetClose').addEventListener('click', closeBudgetDialog);
+  $('#budgetCancel').addEventListener('click', closeBudgetDialog);
+  $('#budgetDialog').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeBudgetDialog(); });
+  $('#budgetFields').addEventListener('input', function (e) { if (e.target.matches('input')) formatAmountLive(e.target); });
+  $('#budgetForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var out = [], bad = null;
+    $all('#budgetFields input').forEach(function (inp) {
+      if (!inp.value.trim()) return;
+      var v = parseAmount(inp.value);
+      if (!(v >= 0)) { bad = bad || inp; return; }
+      if (v > 0) out.push({ category: inp.getAttribute('data-cat'), amount: Math.round(v * 100) / 100 });
+    });
+    if (bad) { showMsg('Enter an amount like 5,000 or leave it blank.', true); bad.focus(); return; }
+    state.budgets = out;
+    save(); closeBudgetDialog(); renderAll();
+    showMsg(out.length ? 'Budgets saved.' : 'Budgets cleared.');
+  });
 }
 // One transaction row: the whole row is a button that opens the edit sheet.
 function txRow(f) {
@@ -713,6 +855,7 @@ function catOptions() {
   return opts;
 }
 function catIcon(name) {
+  if (String(name).toLowerCase() === 'transfer fees') return '🔄';
   var all = CAT_PRESETS.expense.concat(CAT_PRESETS.income);
   for (var i = 0; i < all.length; i++) if (all[i][0].toLowerCase() === String(name).toLowerCase()) return all[i][1];
   return '🏷️';
@@ -790,17 +933,23 @@ function resetFinanceForm() {
   $('#financeSubmit').textContent = 'Add';
   $('#financeDelete').hidden = true;
 }
-function openFinanceDialog() {
-  var d = financeDialog();
+function openDialog(d) {
   if (typeof d.showModal === 'function') { if (!d.open) d.showModal(); }
   else d.setAttribute('open', '');
+}
+function closeDialog(d) {
+  if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+  var t = $('#toast'); // the toast may have moved into this dialog
+  if (t && t.parentNode !== document.body) document.body.appendChild(t);
+}
+function openFinanceDialog() {
+  openDialog(financeDialog());
   // New entry: jump straight to the amount. Editing: don't pop the phone keyboard over the details.
   if (!editingFinanceId) $('#finAmount').focus();
   else { try { $('#financeClose').focus({ preventScroll: true }); } catch (e) {} }
 }
 function closeFinanceDialog() {
-  var d = financeDialog();
-  if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+  closeDialog(financeDialog());
   resetFinanceForm();
 }
 function initFinance() {
@@ -814,11 +963,11 @@ function initFinance() {
   $('#financeCancel').addEventListener('click', closeFinanceDialog);
   $('#financeDelete').addEventListener('click', function () {
     var id = editingFinanceId;
-    if (!id || !confirm('Delete this transaction?')) return;
-    state.finance = state.finance.filter(function (x) { return x.id !== id; });
+    if (!id) return;
     closeFinanceDialog();
-    save(); renderAll();
-    showMsg('Transaction deleted.');
+    deleteWithUndo('Transaction deleted.', function () {
+      state.finance = state.finance.filter(function (x) { return x.id !== id; });
+    });
   });
   $('#financeClose').addEventListener('click', closeFinanceDialog);
   financeDialog().addEventListener('click', function (e) {
@@ -925,15 +1074,13 @@ function initFinance() {
       if (!f) return;
       editingFinanceId = ed;
       $('#finType').value = f.type;
-      try { $('#finAmount').value = Number(f.amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-      catch (e) { $('#finAmount').value = Number(f.amount).toFixed(2); }
+      $('#finAmount').value = formatAmount(f.amount);
       $('#finCategory').value = f.category; $('#finDate').value = f.date;
       $('#finDesc').value = f.description || f.note || '';
       $('#finPay').value = f.payMethod || 'Cash';
       $('#finFrom').value = f.fromWallet || f.payMethod || 'Maya';
       $('#finTo').value = f.toWallet || 'GCash';
-      try { $('#finFee').value = (Number(f.fee) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-      catch (e) { $('#finFee').value = (Number(f.fee) || 0).toFixed(2); }
+      $('#finFee').value = formatAmount(Number(f.fee) || 0);
       toggleFinanceType();
       $('#financeFormTitle').textContent = 'Edit transaction';
       $('#financeSubmit').textContent = 'Save';
@@ -941,9 +1088,9 @@ function initFinance() {
       openFinanceDialog();
     }
     if (del) {
-      if (!confirm('Delete this transaction?')) return;
-      state.finance = state.finance.filter(function (x) { return x.id !== del; });
-      save(); renderAll();
+      deleteWithUndo('Transaction deleted.', function () {
+        state.finance = state.finance.filter(function (x) { return x.id !== del; });
+      });
     }
   });
 }
@@ -1053,10 +1200,11 @@ function initTasks() {
       $('#goalTitle').focus({ preventScroll: true });
     }
     if (del) {
-      if (!confirm('Delete this goal? Linked tasks will become unlinked (not deleted).')) return;
-      state.goals = state.goals.filter(function (x) { return x.id !== del; });
-      state.tasks.forEach(function (t) { if (t.goalId === del) t.goalId = ''; });
-      save(); renderAll();
+      if (editingGoalId === del) $('#goalCancel').click();
+      deleteWithUndo('Goal deleted. Its tasks were kept.', function () {
+        state.goals = state.goals.filter(function (x) { return x.id !== del; });
+        state.tasks.forEach(function (t) { if (t.goalId === del) t.goalId = ''; });
+      });
     }
   });
   $('#taskForm').addEventListener('submit', function (e) {
@@ -1104,9 +1252,10 @@ function initTasks() {
       $('#taskTitle').focus({ preventScroll: true });
     }
     if (del) {
-      if (!confirm('Delete this task?')) return;
-      state.tasks = state.tasks.filter(function (x) { return x.id !== del; });
-      save(); renderAll();
+      if (editingTaskId === del) $('#taskCancel').click();
+      deleteWithUndo('Task deleted.', function () {
+        state.tasks = state.tasks.filter(function (x) { return x.id !== del; });
+      });
     }
   });
 }
@@ -1174,13 +1323,8 @@ function renderDashboard() {
   var labels = days.map(function (d) { return d === t ? 'Today' : WEEKDAYS[parseD(d).getDay()]; });
   var vals = days.map(habitDayPct);
   $('#chartHabitsWeek').innerHTML = state.habits.length ? weekBars(labels, vals, days.indexOf(t)) : '<p class="empty">Add a habit to see your week.</p>';
-  var byCat = {};
-  state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) === monthKey(t); })
-    .forEach(function (f) {
-      if (f.type === 'expense') byCat[f.category] = (byCat[f.category] || 0) + f.amount;
-      else if (f.type === 'transfer' && (f.fee || 0) > 0) byCat['Transfer fees'] = (byCat['Transfer fees'] || 0) + f.fee;
-    });
-  var rows = Object.keys(byCat).map(function (k) { return { label: k, value: byCat[k] }; })
+  var byCat = spendByCategory(monthKey(t));
+  var rows = Object.keys(byCat).map(function (k) { return byCat[k]; })
     .sort(function (a, b) { return b.value - a.value; }).slice(0, 6);
   $('#chartSpendCat').innerHTML = rows.length ? hBars(rows) : '<p class="empty">No spending this month yet.</p>';
   renderWallets();
@@ -1213,6 +1357,34 @@ function paintWallets(box, emptyEl, totalEl) {
   }).join('');
 }
 
+/* ---------- backup reminder ---------- */
+var BACKUP_KEY = 'personal-tracker-last-backup';          // ms timestamp of the last export
+var BACKUP_SNOOZE_KEY = 'personal-tracker-backup-snooze'; // ms timestamp: hide the reminder until then
+var BACKUP_EVERY_DAYS = 14, BACKUP_SNOOZE_DAYS = 3, DAY_MS = 86400000;
+function lsNum(key) {
+  try { var n = Number(localStorage.getItem(key)); return n > 0 ? n : 0; } catch (e) { return 0; }
+}
+function markBackedUp() {
+  try { localStorage.setItem(BACKUP_KEY, String(Date.now())); localStorage.removeItem(BACKUP_SNOOZE_KEY); } catch (e) {}
+  renderBackupNudge(); updateStorageInfo();
+}
+function recordCount() {
+  return state.habits.length + state.health.length + state.finance.length + state.goals.length + state.tasks.length;
+}
+function daysAgoText(ts) {
+  var days = Math.floor((Date.now() - ts) / DAY_MS);
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago';
+}
+function renderBackupNudge() {
+  var box = $('#backupNudge');
+  if (!box) return;
+  var last = lsNum(BACKUP_KEY), now = Date.now();
+  var due = last ? now - last >= BACKUP_EVERY_DAYS * DAY_MS : recordCount() >= 5;
+  box.hidden = !due || lsNum(BACKUP_SNOOZE_KEY) > now;
+  if (box.hidden) return;
+  $('#backupNudgeTitle').textContent = last ? 'Last backup ' + daysAgoText(last) : 'No backup yet';
+}
+
 /* ---------- export / import / reset ---------- */
 function buildExport() {
   return {
@@ -1221,7 +1393,7 @@ function buildExport() {
     exportDate: new Date().toISOString(),
     data: {
       habits: state.habits, health: state.health,
-      finance: state.finance, goals: state.goals, tasks: state.tasks
+      finance: state.finance, goals: state.goals, tasks: state.tasks, budgets: state.budgets
     }
   };
 }
@@ -1242,7 +1414,7 @@ function validateImport(obj) {
     if (!Array.isArray(data[name])) return null;
     return data[name];
   }
-  var names = ['habits', 'health', 'finance', 'goals', 'tasks'];
+  var names = ['habits', 'health', 'finance', 'goals', 'tasks', 'budgets'];
   for (var i = 0; i < names.length; i++) {
     if (checkArr(names[i]) === null) return { ok: false, error: 'Field "' + names[i] + '" must be an array.' };
   }
@@ -1250,6 +1422,7 @@ function validateImport(obj) {
     version: Number(obj.version) || SCHEMA_VERSION,
     habits: data.habits || [], health: data.health || [],
     finance: data.finance || [], goals: data.goals || [], tasks: data.tasks || [],
+    budgets: data.budgets || [],
     settings: { theme: currentTheme() }
   };
   try {
@@ -1272,21 +1445,34 @@ function mergeStates(base, incoming) {
       out[key].push(row);
     });
   });
+  // budgets: keep your current limits, add the imported ones for other categories
+  out.budgets = (out.budgets || []).slice();
+  (incoming.budgets || []).forEach(function (b) {
+    var k = b.category.toLowerCase();
+    if (!out.budgets.some(function (x) { return x.category.toLowerCase() === k; })) out.budgets.push({ category: b.category, amount: b.amount });
+  });
   return out;
 }
 var pendingImport = null;
 function initDataButtons() {
   function doExport() {
     downloadJson(buildExport(), 'personal-tracker-' + todayStr() + '.json');
+    markBackedUp();
     showMsg('Backup downloaded. Keep it somewhere safe.');
   }
   $('#exportBtn').addEventListener('click', doExport);
+  $('#backupNudgeBtn').addEventListener('click', doExport);
+  $('#backupNudgeLater').addEventListener('click', function () {
+    try { localStorage.setItem(BACKUP_SNOOZE_KEY, String(Date.now() + BACKUP_SNOOZE_DAYS * DAY_MS)); } catch (e) {}
+    renderBackupNudge();
+  });
   $('#exportBtnTop').addEventListener('click', doExport);
   $('#resetBtn').addEventListener('click', function () {
     if (!confirm('Delete ALL local data (habits, health, finance, tasks)? This cannot be undone.\n\nTip: Export a backup first.')) return;
     if (!confirm('Really erase everything? Last chance!')) return;
     state = defaultState();
     state.settings.theme = currentTheme();
+    try { localStorage.removeItem(BACKUP_KEY); localStorage.removeItem(BACKUP_SNOOZE_KEY); } catch (e) {}
     save(); renderAll();
     showMsg('All data cleared.');
   });
@@ -1307,7 +1493,7 @@ function initDataButtons() {
       pendingImport = res.data;
       var d = res.data;
       $('#importSummary').textContent = 'Found ' + d.habits.length + ' habits, ' + d.health.length + ' health entries, ' +
-        d.finance.length + ' transactions, ' + d.goals.length + ' goals, ' + d.tasks.length + ' tasks (v' + (obj.version || '?') + ', exported ' + (obj.exportDate || 'unknown date') + ').';
+        d.finance.length + ' transactions, ' + d.goals.length + ' goals, ' + d.tasks.length + ' tasks, ' + d.budgets.length + ' budgets (v' + (obj.version || '?') + ', exported ' + (obj.exportDate || 'unknown date') + ').';
       $('#importBox').hidden = false;
       $('#importReplace').focus();
     };
@@ -1438,7 +1624,7 @@ var renderedDay = todayStr();
 function renderAll() {
   renderedDay = todayStr();
   renderDashboard(); renderHabits(); renderHealth(); renderFinance(); renderTasks();
-  updateStorageInfo();
+  renderBackupNudge(); updateStorageInfo();
 }
 // Installed apps stay open for days: when we come back after midnight,
 // move "today" forward (checklist, default form dates, current month).
@@ -1454,7 +1640,7 @@ function checkDayRollover() {
 document.addEventListener('DOMContentLoaded', function () {
   load();
   initTheme(); initTabs();
-  initHabits(); initHealth(); initFinance(); initTasks(); initDataButtons();
+  initHabits(); initHealth(); initFinance(); initBudgets(); initTasks(); initDataButtons();
   initPWA();
   renderAll();
   document.addEventListener('visibilitychange', function () {

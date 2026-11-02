@@ -80,6 +80,18 @@
       <h2 id="h-dashboard"><span id="greeting">Today</span></h2>
     </div>
 
+    <div id="backupNudge" class="card backup-nudge" role="region" aria-labelledby="backupNudgeTitle" hidden>
+      <span class="bn-ico" aria-hidden="true">💾</span>
+      <div class="bn-text">
+        <strong id="backupNudgeTitle">No backup yet</strong>
+        <span class="muted-sm">Your data lives only on this device. Save a copy in case it gets cleared.</span>
+      </div>
+      <div class="bn-actions">
+        <button id="backupNudgeBtn" type="button" class="btn btn-sm"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> Back up</button>
+        <button id="backupNudgeLater" type="button" class="btn btn-ghost btn-sm">Later</button>
+      </div>
+    </div>
+
     <div class="grid kpis">
       <a class="card kpi k-habits" href="#habits">
         <div class="kpi-top">
@@ -420,6 +432,30 @@
           <span class="spacer"></span>
           <button type="button" class="btn btn-ghost" id="financeCancel">Cancel</button>
           <button type="submit" class="btn" id="financeSubmit">Add</button>
+        </div>
+      </form>
+    </dialog>
+    <article class="card budget-card">
+      <div class="card-head">
+        <h3>Budgets <span class="muted-sm" id="budgetMonth"></span></h3>
+        <span class="card-head-value" id="budgetTotal"></span>
+      </div>
+      <ul id="budgetList" class="budgets"></ul>
+      <p id="budgetEmpty" class="empty">Set a monthly limit for categories like Groceries or Dining Out to see how much is left.</p>
+      <button type="button" class="btn btn-secondary btn-sm budget-edit" id="budgetEdit">Set budgets</button>
+    </article>
+    <dialog id="budgetDialog" aria-labelledby="budgetTitle">
+      <div class="dialog-head">
+        <h3 id="budgetTitle">Monthly budgets</h3>
+        <button type="button" id="budgetClose" class="btn btn-ghost btn-icon" aria-label="Close dialog"><svg class="ico" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+      <form id="budgetForm" novalidate>
+        <p class="muted small budget-hint">Limit per category, every month. Leave blank for no limit.</p>
+        <ul id="budgetFields" class="bud-fields"></ul>
+        <div class="row dialog-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="budgetCancel">Cancel</button>
+          <button type="submit" class="btn" id="budgetSave">Save</button>
         </div>
       </form>
     </dialog>

@@ -9,9 +9,9 @@ Tabs: **Home (dashboard) · Habits · Health · Finance · Goals & Tasks**
 - **Dashboard:** today's habits, water/sleep, month spending, open tasks + 2 hand-drawn SVG charts (weekly habits, spending by category).
 - **Habits:** daily checklist + 🔥 streak counter, add/edit/delete.
 - **Health:** water, sleep, workout, weight + date/note, with Today/Week/Month/All filter.
-- **Finance:** income/expense + amount (₱, auto-comma)/category/description/date + payment method (Cash, GCash, Maya, cards, bank) on expenses, monthly income/expense/balance, date filter. **Transfers** (e.g. Maya → GCash) move money between wallets without counting as spending — only the fee counts as an expense. **Wallet balances** on the dashboard show net per payment method, derived from your transactions.
+- **Finance:** income/expense + amount (₱, auto-comma)/category/description/date + payment method (Cash, GCash, Maya, cards, bank) on expenses, monthly income/expense/balance, date filter. **Transfers** (e.g. Maya → GCash) move money between wallets without counting as spending — only the fee counts as an expense. **Wallet balances** on the dashboard show net per payment method, derived from your transactions. **Monthly budgets** per expense category show what is left for the viewed month (amber at 80%, red when over).
 - **Goals & Tasks:** tasks with due date, priority, done/undone, optional goal link; goal progress % = done ÷ linked tasks.
-- **Data:** export JSON backup, import with Replace/Merge, reset all (double confirm). Corrupted storage is detected and backed up, never crashes.
+- **Data:** a Home reminder when you have not backed up in 14 days (or ever; "Later" snoozes 3 days), export JSON backup, import with Replace/Merge, reset all (double confirm). Deleting a habit, health entry, transaction, goal or task shows an **Undo** toast instead of a confirm popup. Corrupted storage is detected and backed up, never crashes.
 - **Design:** mobile-first responsive with an app-style frosted bottom tab bar on phones, a floating "Add transaction" button, bottom-sheet dialog with sticky actions, transactions grouped by day (tap a row to edit; delete from the sheet), habit 7-day dots, deep links per tab (`#habits`, `#finance`, …), auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, labels, keyboard-friendly. Still zero dependencies and no build step.
 
 ## Files
@@ -55,7 +55,7 @@ Updates: edit files, commit, push — Pages redeploys automatically. No build st
   "app": "personal-tracker",
   "version": 1,
   "exportDate": "2026-10-04T12:00:00.000Z",
-  "data": { "habits": [], "health": [], "finance": [], "goals": [], "tasks": [] }
+  "data": { "habits": [], "health": [], "finance": [], "goals": [], "tasks": [], "budgets": [] }
 }
 ```
 
