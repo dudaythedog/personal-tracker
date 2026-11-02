@@ -1,4 +1,4 @@
-/* Personal Tracker — vanilla JS, offline-first, localStorage only.
+/* Finance Tracker — vanilla JS, offline-first, localStorage only.
    Single state object + save()/load(). Schema versioned for migrations. */
 'use strict';
 
@@ -78,7 +78,6 @@ function inRange(dateStr, range) {
   return true;
 }
 var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // '2026-10-17' -> 'Today' / 'Yesterday' / 'Oct 17' / 'Oct 17, 2025'
 function niceDate(dateStr) {
   var d = parseD(dateStr);
@@ -90,12 +89,6 @@ function niceDate(dateStr) {
   var s = MONTHS[d.getMonth()] + ' ' + d.getDate();
   return d.getFullYear() === new Date().getFullYear() ? s : s + ', ' + d.getFullYear();
 }
-function iconBtns(kind, id, label) {
-  return '<div class="actions">' +
-    '<button type="button" class="btn btn-icon" data-edit-' + kind + '="' + esc(id) + '" aria-label="Edit ' + esc(label) + '"><svg class="ico" aria-hidden="true"><use href="#i-edit"/></svg></button>' +
-    '<button type="button" class="btn btn-icon danger" data-del-' + kind + '="' + esc(id) + '" aria-label="Delete ' + esc(label) + '"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg></button></div>';
-}
-// Click delegation: icons inside buttons are the event target, so look up the button.
 function dataFrom(e, attr) {
   var el = e.target && e.target.closest ? e.target.closest('[' + attr + ']') : null;
   return el ? el.getAttribute(attr) : null;
@@ -114,12 +107,11 @@ function money(n) {
 function defaultState() {
   return {
     version: SCHEMA_VERSION,
-    habits: [],   // {id,name,created,checks:{YYYY-MM-DD:true}}
-    health: [],   // {id,date,water,sleep,workout,weight,note}
-    finance: [],  // {id,type:'income'|'expense',amount,category,description,payMethod,date}
-    goals: [],    // {id,title,deadline,created}
-    tasks: [],    // {id,title,due,priority,done,goalId,created}
+    finance: [],  // {id,type:'income'|'expense'|'transfer',amount,category,description,payMethod,fee,fromWallet,toWallet,date}
     budgets: [],  // {category, amount} monthly spending limit per expense category
+    // Habits/health/goals/tasks from the earlier all-in-one tracker: no UI any more, but kept
+    // untouched (and in backups) so nobody's old data is thrown away. null when there is none.
+    legacy: null, // {habits:[], health:[], goals:[], tasks:[]}
     settings: { theme: 'auto' }
   };
 }
@@ -160,23 +152,12 @@ function migrate(s) {
   var d = defaultState();
   if (!s || typeof s !== 'object') return d;
   function arr(v) { return Array.isArray(v) ? v : []; }
-  d.habits = arr(s.habits).filter(function (h) { return h && typeof h.name === 'string'; }).map(function (h) {
-    return { id: String(h.id || uid()), name: String(h.name).slice(0, 80), created: h.created || todayStr(), checks: (h.checks && typeof h.checks === 'object') ? h.checks : {} };
-  });
-  d.health = arr(s.health).map(function (h) {
-    return { id: String(h.id || uid()), date: normDateStr(h.date), water: numOrNull(h.water), sleep: numOrNull(h.sleep), workout: numOrNull(h.workout), weight: numOrNull(h.weight), note: String(h.note || '').slice(0, 140) };
-  }).filter(function (h) { return !!parseD(h.date); });
   d.finance = arr(s.finance).map(function (f) {
     // note (old field name) folds into description so old backups keep their text
     var t = (f.type === 'income' || f.type === 'transfer') ? f.type : 'expense';
     return { id: String(f.id || uid()), type: t, amount: Math.abs(Number(f.amount) || 0), category: String(f.category || (t === 'transfer' ? 'Transfer' : 'Other')).slice(0, 40), description: String(f.description || f.note || '').slice(0, 140), payMethod: String(f.payMethod || '').slice(0, 30), fee: Math.abs(Number(f.fee) || 0), fromWallet: String(f.fromWallet || f.payMethod || '').slice(0, 30), toWallet: String(f.toWallet || '').slice(0, 30), date: normDateStr(f.date) };
   }).filter(function (f) { return f.amount > 0 && !!parseD(f.date); });
-  d.goals = arr(s.goals).filter(function (g) { return g && typeof g.title === 'string'; }).map(function (g) {
-    return { id: String(g.id || uid()), title: String(g.title).slice(0, 100), deadline: g.deadline || '', created: g.created || todayStr() };
-  });
-  d.tasks = arr(s.tasks).filter(function (t) { return t && typeof t.title === 'string'; }).map(function (t) {
-    return { id: String(t.id || uid()), title: String(t.title).slice(0, 140), due: t.due || '', priority: ['low', 'medium', 'high'].indexOf(t.priority) >= 0 ? t.priority : 'medium', done: !!t.done, goalId: t.goalId || '', created: t.created || todayStr() };
-  });
+  d.legacy = pickLegacy(s);
   var seenBud = {};
   d.budgets = arr(s.budgets).map(function (b) {
     return { category: String((b && b.category) || '').trim().slice(0, 40), amount: Math.round(Math.abs(Number(b && b.amount) || 0) * 100) / 100 };
@@ -189,10 +170,20 @@ function migrate(s) {
   d.version = SCHEMA_VERSION;
   return d;
 }
-function numOrNull(v) {
-  if (v === '' || v == null) return null;
-  var n = Number(v);
-  return isNaN(n) ? null : n;
+var LEGACY_KEYS = ['habits', 'health', 'goals', 'tasks'];
+// Old sections' data, from `legacy` (current format) or top-level arrays (old storage/backups).
+// Passed through as-is: nothing reads it, so it is never reshaped or deduplicated.
+function pickLegacy(s) {
+  var src = s && s.legacy && typeof s.legacy === 'object' ? s.legacy : s;
+  var out = {}, n = 0;
+  LEGACY_KEYS.forEach(function (k) {
+    out[k] = src && Array.isArray(src[k]) ? src[k] : [];
+    n += out[k].length;
+  });
+  return n ? out : null;
+}
+function legacyCount(l) {
+  return l ? LEGACY_KEYS.reduce(function (a, k) { return a + l[k].length; }, 0) : 0;
 }
 
 /* ---------- UI helpers ---------- */
@@ -218,11 +209,16 @@ function showMsg(text, isErr, withUndo) {
 }
 /* ---------- delete with undo (instead of "Are you sure?" popups) ---------- */
 var undoSnap = null;
+function snapFinance() { return JSON.stringify({ finance: state.finance, budgets: state.budgets }); }
+function restoreFinance(snap) {
+  var m = migrate(JSON.parse(snap));
+  state.finance = m.finance; state.budgets = m.budgets;
+}
 function deleteWithUndo(msg, mutate) {
-  var snap = JSON.stringify(state);
+  var snap = snapFinance();
   mutate();
   if (!save()) { // keep screen and storage in sync; save() already showed the error
-    state = migrate(JSON.parse(snap)); renderAll(); return;
+    restoreFinance(snap); renderAll(); return;
   }
   renderAll();
   undoSnap = snap; // armed after save(), which clears it
@@ -231,7 +227,7 @@ function deleteWithUndo(msg, mutate) {
 function undoDelete() {
   if (!undoSnap) return;
   var snap = undoSnap;
-  try { state = migrate(JSON.parse(snap)); } catch (e) { return; }
+  try { restoreFinance(snap); } catch (e) { return; }
   save(); renderAll();
   showMsg('Restored.');
 }
@@ -277,211 +273,6 @@ function initTheme() {
     state.settings.theme = next;
     try { save(); } catch (e) {}
     applyTheme(next);
-  });
-}
-
-/* ---------- tabs ---------- */
-var TAB_NAMES = ['dashboard', 'habits', 'health', 'finance', 'tasks'];
-function tabFromHash() {
-  var h = (location.hash || '').replace('#', '');
-  return TAB_NAMES.indexOf(h) >= 0 ? h : 'dashboard';
-}
-function initTabs() {
-  $all('.tab').forEach(function (btn) {
-    btn.addEventListener('click', function () { goTab(btn.dataset.tab); });
-  });
-  // KPI cards are <a href="#habits"> etc.; hashchange handles them and the back button.
-  window.addEventListener('hashchange', function () { switchTab(tabFromHash()); window.scrollTo(0, 0); });
-  switchTab(tabFromHash());
-}
-function goTab(name) {
-  if (tabFromHash() === name) { window.scrollTo(0, 0); return; }
-  location.hash = name === 'dashboard' ? '' : name; // fires hashchange -> switchTab
-  if (name === 'dashboard') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} switchTab('dashboard'); window.scrollTo(0, 0); }
-}
-function switchTab(name) {
-  $all('.tab').forEach(function (b) {
-    var on = b.dataset.tab === name;
-    b.classList.toggle('is-active', on);
-    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
-  });
-  $all('.view').forEach(function (v) {
-    var on = v.id === 'view-' + name;
-    v.classList.toggle('is-active', on);
-    if (on) v.removeAttribute('hidden'); else v.setAttribute('hidden', '');
-  });
-  if (name === 'dashboard') renderDashboard();
-}
-
-/* ---------- habits ---------- */
-var editingHabitId = null;
-function habitStreak(h) {
-  var t = todayStr(), streak = 0, d = t;
-  if (!h.checks[d]) d = addDaysStr(t, -1); // allow "still alive" if today unchecked
-  while (h.checks[d]) { streak++; d = addDaysStr(d, -1); }
-  return streak;
-}
-function renderHabits() {
-  var t = todayStr();
-  var list = $('#habitList');
-  $('#habitEmpty').style.display = state.habits.length ? 'none' : '';
-  var doneCount = state.habits.filter(function (h) { return h.checks[t]; }).length;
-  $('#habitProgress').textContent = state.habits.length ? doneCount + ' of ' + state.habits.length + ' done' : '';
-  var week = last7();
-  list.innerHTML = state.habits.map(function (h) {
-    var done = !!h.checks[t];
-    var streak = habitStreak(h);
-    var dots = week.map(function (d) {
-      return '<i class="' + (h.checks[d] ? 'on' : '') + (d === t ? ' today' : '') + '"></i>';
-    }).join('');
-    return '<li class="habit-row' + (done ? ' is-done' : '') + '">' +
-      '<label class="check-wrap"><input type="checkbox" data-check="' + esc(h.id) + '" ' + (done ? 'checked' : '') + ' aria-label="Mark ' + esc(h.name) + ' done today"></label>' +
-      '<div class="grow"><span class="habit-name' + (done ? ' done-text' : '') + '">' + esc(h.name) + '</span>' +
-      '<div class="habit-sub"><span class="week-dots" title="Last 7 days" aria-hidden="true">' + dots + '</span>' +
-      '<span class="streak' + (streak >= 3 ? ' hot' : '') + '" title="Consecutive days">' + (streak ? '🔥 ' + streak + '-day streak' : 'No streak yet') + '</span></div></div>' +
-      iconBtns('habit', h.id, h.name) + '</li>';
-  }).join('');
-}
-function initHabits() {
-  $('#habitForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var name = $('#habitName').value.trim();
-    if (!name) return;
-    if (editingHabitId) {
-      var h = state.habits.find(function (x) { return x.id === editingHabitId; });
-      if (h) h.name = name;
-      editingHabitId = null;
-      $('#habitFormTitle').textContent = 'Add a habit';
-      $('#habitSubmit').textContent = 'Add habit';
-      $('#habitCancel').hidden = true;
-    } else {
-      state.habits.push({ id: uid(), name: name, created: todayStr(), checks: {} });
-    }
-    $('#habitName').value = '';
-    save(); renderAll();
-  });
-  $('#habitCancel').addEventListener('click', function () {
-    editingHabitId = null; $('#habitName').value = '';
-    $('#habitFormTitle').textContent = 'Add a habit';
-    $('#habitSubmit').textContent = 'Add habit';
-    $('#habitCancel').hidden = true;
-  });
-  $('#habitList').addEventListener('change', function (e) {
-    var id = e.target.getAttribute('data-check');
-    if (!id) return;
-    var h = state.habits.find(function (x) { return x.id === id; });
-    if (!h) return;
-    if (e.target.checked) h.checks[todayStr()] = true; else delete h.checks[todayStr()];
-    save(); renderAll();
-  });
-  $('#habitList').addEventListener('click', function (e) {
-    var ed = dataFrom(e, 'data-edit-habit');
-    var del = dataFrom(e, 'data-del-habit');
-    if (ed) {
-      var h = state.habits.find(function (x) { return x.id === ed; });
-      if (!h) return;
-      editingHabitId = ed;
-      $('#habitName').value = h.name;
-      $('#habitForm').scrollIntoView({ block: 'center', behavior: 'smooth' });
-      $('#habitName').focus({ preventScroll: true });
-      $('#habitFormTitle').textContent = 'Edit habit';
-      $('#habitSubmit').textContent = 'Save';
-      $('#habitCancel').hidden = false;
-    }
-    if (del) {
-      if (editingHabitId === del) $('#habitCancel').click();
-      deleteWithUndo('Habit deleted.', function () {
-        state.habits = state.habits.filter(function (x) { return x.id !== del; });
-      });
-    }
-  });
-}
-
-/* ---------- health ---------- */
-var healthRange = 'today', editingHealthId = null;
-function renderHealth() {
-  var items = state.health.filter(function (h) { return inRange(h.date, healthRange); })
-    .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
-  $('#healthEmpty').style.display = items.length ? 'none' : '';
-  $('#healthList').innerHTML = items.map(function (h) {
-    var bits = [];
-    if (h.water != null) bits.push('💧 ' + h.water + ' glasses');
-    if (h.sleep != null) bits.push('😴 ' + h.sleep + 'h');
-    if (h.workout != null) bits.push(h.workout > 0 ? '🏃 ' + h.workout + ' min' : '🛋️ Rest day');
-    if (h.weight != null) bits.push('⚖️ ' + h.weight + ' kg');
-    return '<li class="entry"><div class="grow"><strong>' + esc(niceDate(h.date)) + '</strong>' +
-      '<div class="chips">' + (bits.length ? bits.map(function (b) { return '<span class="chip">' + esc(b) + '</span>'; }).join('') : '<span class="meta">—</span>') + '</div>' +
-      (h.note ? '<div class="meta">' + esc(h.note) + '</div>' : '') + '</div>' +
-      iconBtns('health', h.id, 'entry for ' + h.date) + '</li>';
-  }).join('');
-}
-function initHealth() {
-  $('#healthDate').value = todayStr();
-  $all('#view-health .seg-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      $all('#view-health .seg-btn').forEach(function (x) { x.classList.remove('is-active'); });
-      b.classList.add('is-active');
-      healthRange = b.dataset.range; renderHealth();
-    });
-  });
-  $('#healthForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var obj = {
-      id: editingHealthId || uid(),
-      date: $('#healthDate').value || todayStr(),
-      water: numOrNull($('#healthWater').value),
-      sleep: numOrNull($('#healthSleep').value),
-      workout: numOrNull($('#healthWorkout').value),
-      weight: numOrNull($('#healthWeight').value),
-      note: $('#healthNote').value.trim()
-    };
-    if (!parseD(obj.date)) { alert('Please enter a valid date.'); return; }
-    if (obj.water == null && obj.sleep == null && obj.workout == null && obj.weight == null && !obj.note) {
-      showMsg('Fill in at least one field before saving.', true); $('#healthWater').focus(); return;
-    }
-    if (editingHealthId) {
-      var i = state.health.findIndex(function (x) { return x.id === editingHealthId; });
-      if (i >= 0) state.health[i] = obj;
-      editingHealthId = null;
-      $('#healthFormTitle').textContent = 'Log health';
-      $('#healthSubmit').textContent = 'Save entry';
-      $('#healthCancel').hidden = true;
-    } else state.health.push(obj);
-    e.target.reset(); $('#healthDate').value = todayStr();
-    save(); renderAll();
-    showMsg('Health entry saved.');
-  });
-  $('#healthCancel').addEventListener('click', function () {
-    editingHealthId = null; $('#healthForm').reset(); $('#healthDate').value = todayStr();
-    $('#healthFormTitle').textContent = 'Log health';
-    $('#healthSubmit').textContent = 'Save entry';
-    $('#healthCancel').hidden = true;
-  });
-  $('#healthList').addEventListener('click', function (e) {
-    var ed = dataFrom(e, 'data-edit-health');
-    var del = dataFrom(e, 'data-del-health');
-    if (ed) {
-      var h = state.health.find(function (x) { return x.id === ed; });
-      if (!h) return;
-      editingHealthId = ed;
-      $('#healthDate').value = h.date;
-      $('#healthWater').value = h.water == null ? '' : h.water;
-      $('#healthSleep').value = h.sleep == null ? '' : h.sleep;
-      $('#healthWorkout').value = h.workout == null ? '' : h.workout;
-      $('#healthWeight').value = h.weight == null ? '' : h.weight;
-      $('#healthNote').value = h.note || '';
-      $('#healthFormTitle').textContent = 'Edit entry';
-      $('#healthSubmit').textContent = 'Save';
-      $('#healthCancel').hidden = false;
-      $('#healthForm').scrollIntoView({ block: 'start', behavior: 'smooth' });
-      $('#healthDate').focus({ preventScroll: true });
-    }
-    if (del) {
-      if (editingHealthId === del) $('#healthCancel').click();
-      deleteWithUndo('Health entry deleted.', function () {
-        state.health = state.health.filter(function (x) { return x.id !== del; });
-      });
-    }
   });
 }
 
@@ -627,16 +418,20 @@ function renderFinance() {
       '<span class="amt">' + (net > 0 ? '+' : '') + esc(money(net)) + '</span></div>' +
       '<ul class="tx-list">' + g.items.map(txRow).join('') + '</ul></li>';
   }).join('');
-  renderBudgets();
+  var bym = budgetMonth(), monthSpend = spendByCategory(inMonth(bym));
+  renderBudgets(bym, monthSpend);
+  // the chart covers the same period as the list below it
+  renderSpendChart(financeRange === 'month' ? monthSpend : spendByCategory(function (f) { return inRange(f.date, financeRange); }),
+    financeRange === 'month' ? monthLabel(bym) : RANGE_LABEL[financeRange]);
 }
 /* ---------- monthly budgets per expense category ---------- */
 // Spending per category in a month: [{ label, value }]; categories match ignoring case,
 // and transfer fees count as spending (like the monthly Expenses total).
 var FEES_CAT = 'Transfer fees';
-function spendByCategory(ym) {
+function spendByCategory(keep) { // keep(f) -> bool
   var by = {};
   state.finance.forEach(function (f) {
-    if (monthKey(normDateStr(f.date)) !== ym) return;
+    if (!keep(f)) return;
     var label, amt;
     if (f.type === 'expense') { label = f.category; amt = f.amount; }
     else if (f.type === 'transfer' && (f.fee || 0) > 0) { label = FEES_CAT; amt = f.fee; }
@@ -647,10 +442,10 @@ function spendByCategory(ym) {
   });
   return by; // keyed by lower-case category
 }
-function renderBudgets() {
-  // The month navigator only shows in Month mode; otherwise budgets track this month.
-  var ym = financeRange === 'month' ? financeViewMonth() : monthKey(todayStr());
-  var spent = spendByCategory(ym);
+function inMonth(ym) { return function (f) { return monthKey(normDateStr(f.date)) === ym; }; }
+// Budgets are monthly. The month navigator only shows in Month mode; otherwise they track this month.
+function budgetMonth() { return financeRange === 'month' ? financeViewMonth() : monthKey(todayStr()); }
+function renderBudgets(ym, spent) {
   $('#budgetMonth').textContent = '· ' + monthLabel(ym);
   var rows = state.budgets.map(function (b) {
     var hit = spent[b.category.toLowerCase()], s = hit ? hit.value : 0;
@@ -1095,193 +890,7 @@ function initFinance() {
   });
 }
 
-/* ---------- goals & tasks ---------- */
-var taskFilter = 'open', editingGoalId = null, editingTaskId = null;
-function goalProgress(goalId) {
-  var linked = state.tasks.filter(function (t) { return t.goalId === goalId; });
-  if (!linked.length) return { done: 0, total: 0, pct: 0 };
-  var done = linked.filter(function (t) { return t.done; }).length;
-  return { done: done, total: linked.length, pct: Math.round(done / linked.length * 100) };
-}
-function renderGoals() {
-  $('#goalEmpty').style.display = state.goals.length ? 'none' : '';
-  $('#goalList').innerHTML = state.goals.map(function (g) {
-    var p = goalProgress(g.id);
-    return '<li class="entry"><div class="grow"><div class="entry-title"><strong>' + esc(g.title) + '</strong><span class="amt">' + p.pct + '%</span></div>' +
-      '<div class="meta">' + (g.deadline ? 'Target ' + esc(niceDate(g.deadline)) + ' · ' : '') + (p.total ? p.done + ' of ' + p.total + ' tasks done' : 'No linked tasks yet') + '</div>' +
-      '<div class="progress" role="progressbar" aria-valuenow="' + p.pct + '" aria-valuemin="0" aria-valuemax="100" aria-label="Progress for ' + esc(g.title) + '"><span style="width:' + p.pct + '%"></span></div></div>' +
-      iconBtns('goal', g.id, g.title) + '</li>';
-  }).join('');
-  // keep goal dropdown in sync
-  var sel = $('#taskGoal');
-  var cur = sel.value;
-  sel.innerHTML = '<option value="">— No goal —</option>' + state.goals.map(function (g) {
-    return '<option value="' + esc(g.id) + '">' + esc(g.title) + '</option>';
-  }).join('');
-  if (state.goals.some(function (g) { return g.id === cur; })) sel.value = cur;
-}
-function renderTasks() {
-  renderGoals();
-  var items = state.tasks.slice().sort(function (a, b) {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    if (a.due !== b.due) {
-      if (!a.due) return 1;
-      if (!b.due) return -1;
-      return a.due < b.due ? -1 : 1;
-    }
-    var rank = { high: 0, medium: 1, low: 2 };
-    return (rank[a.priority] || 1) - (rank[b.priority] || 1);
-  });
-  if (taskFilter === 'open') items = items.filter(function (t) { return !t.done; });
-  if (taskFilter === 'done') items = items.filter(function (t) { return t.done; });
-  $('#taskEmpty').style.display = items.length ? 'none' : '';
-  var goalName = function (id) {
-    var g = state.goals.find(function (x) { return x.id === id; });
-    return g ? g.title : '';
-  };
-  var today = todayStr();
-  $('#taskList').innerHTML = items.map(function (t) {
-    var bits = [];
-    if (t.due) {
-      var overdue = !t.done && t.due < today;
-      bits.push(overdue ? '<span class="overdue">Overdue · ' + esc(niceDate(t.due)) + '</span>' : 'Due ' + esc(niceDate(t.due)));
-    }
-    if (t.goalId && goalName(t.goalId)) bits.push('🎯 ' + esc(goalName(t.goalId)));
-    return '<li class="task-row">' +
-      '<label class="check-wrap"><input type="checkbox" data-check-task="' + esc(t.id) + '" ' + (t.done ? 'checked' : '') + ' aria-label="Mark task ' + esc(t.title) + ' done"></label>' +
-      '<div class="grow"><span class="' + (t.done ? 'done-text' : '') + '">' + esc(t.title) + '</span> ' +
-      '<span class="pill ' + esc(t.priority) + '">' + esc(t.priority) + '</span>' +
-      (bits.length ? '<div class="meta">' + bits.join(' · ') + '</div>' : '') + '</div>' +
-      iconBtns('task', t.id, t.title) + '</li>';
-  }).join('');
-}
-function initTasks() {
-  $all('#view-tasks .seg-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      $all('#view-tasks .seg-btn').forEach(function (x) { x.classList.remove('is-active'); });
-      b.classList.add('is-active');
-      taskFilter = b.dataset.range; renderTasks();
-    });
-  });
-  $('#goalForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var title = $('#goalTitle').value.trim();
-    if (!title) return;
-    if (editingGoalId) {
-      var g = state.goals.find(function (x) { return x.id === editingGoalId; });
-      if (g) { g.title = title; g.deadline = $('#goalDeadline').value; }
-      editingGoalId = null;
-      $('#goalFormTitle').textContent = 'Add a goal';
-      $('#goalSubmit').textContent = 'Add goal';
-      $('#goalCancel').hidden = true;
-    } else {
-      state.goals.push({ id: uid(), title: title, deadline: $('#goalDeadline').value, created: todayStr() });
-    }
-    e.target.reset(); save(); renderAll();
-  });
-  $('#goalCancel').addEventListener('click', function () {
-    editingGoalId = null; $('#goalForm').reset();
-    $('#goalFormTitle').textContent = 'Add a goal';
-    $('#goalSubmit').textContent = 'Add goal';
-    $('#goalCancel').hidden = true;
-  });
-  $('#goalList').addEventListener('click', function (e) {
-    var ed = dataFrom(e, 'data-edit-goal');
-    var del = dataFrom(e, 'data-del-goal');
-    if (ed) {
-      var g = state.goals.find(function (x) { return x.id === ed; });
-      if (!g) return;
-      editingGoalId = ed;
-      $('#goalTitle').value = g.title; $('#goalDeadline').value = g.deadline || '';
-      $('#goalFormTitle').textContent = 'Edit goal';
-      $('#goalSubmit').textContent = 'Save';
-      $('#goalCancel').hidden = false;
-      $('#goalForm').scrollIntoView({ block: 'start', behavior: 'smooth' });
-      $('#goalTitle').focus({ preventScroll: true });
-    }
-    if (del) {
-      if (editingGoalId === del) $('#goalCancel').click();
-      deleteWithUndo('Goal deleted. Its tasks were kept.', function () {
-        state.goals = state.goals.filter(function (x) { return x.id !== del; });
-        state.tasks.forEach(function (t) { if (t.goalId === del) t.goalId = ''; });
-      });
-    }
-  });
-  $('#taskForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var title = $('#taskTitle').value.trim();
-    if (!title) return;
-    if (editingTaskId) {
-      var t = state.tasks.find(function (x) { return x.id === editingTaskId; });
-      if (t) { t.title = title; t.due = $('#taskDue').value; t.priority = $('#taskPriority').value; t.goalId = $('#taskGoal').value; }
-      editingTaskId = null;
-      $('#taskFormTitle').textContent = 'Add a task';
-      $('#taskSubmit').textContent = 'Add task';
-      $('#taskCancel').hidden = true;
-    } else {
-      state.tasks.push({ id: uid(), title: title, due: $('#taskDue').value, priority: $('#taskPriority').value, done: false, goalId: $('#taskGoal').value, created: todayStr() });
-    }
-    e.target.reset();
-    save(); renderAll();
-  });
-  $('#taskCancel').addEventListener('click', function () {
-    editingTaskId = null; $('#taskForm').reset();
-    $('#taskFormTitle').textContent = 'Add a task';
-    $('#taskSubmit').textContent = 'Add task';
-    $('#taskCancel').hidden = true;
-  });
-  $('#taskList').addEventListener('change', function (e) {
-    var id = e.target.getAttribute('data-check-task');
-    if (!id) return;
-    var t = state.tasks.find(function (x) { return x.id === id; });
-    if (t) { t.done = e.target.checked; save(); renderAll(); }
-  });
-  $('#taskList').addEventListener('click', function (e) {
-    var ed = dataFrom(e, 'data-edit-task');
-    var del = dataFrom(e, 'data-del-task');
-    if (ed) {
-      var t = state.tasks.find(function (x) { return x.id === ed; });
-      if (!t) return;
-      editingTaskId = ed;
-      $('#taskTitle').value = t.title; $('#taskDue').value = t.due || '';
-      $('#taskPriority').value = t.priority; $('#taskGoal').value = t.goalId || '';
-      $('#taskFormTitle').textContent = 'Edit task';
-      $('#taskSubmit').textContent = 'Save';
-      $('#taskCancel').hidden = false;
-      $('#taskForm').scrollIntoView({ block: 'start', behavior: 'smooth' });
-      $('#taskTitle').focus({ preventScroll: true });
-    }
-    if (del) {
-      if (editingTaskId === del) $('#taskCancel').click();
-      deleteWithUndo('Task deleted.', function () {
-        state.tasks = state.tasks.filter(function (x) { return x.id !== del; });
-      });
-    }
-  });
-}
-
-/* ---------- dashboard ---------- */
-function last7() {
-  var t = todayStr(), out = [];
-  for (var i = 6; i >= 0; i--) out.push(addDaysStr(t, -i));
-  return out;
-}
-function habitDayPct(dateStr) {
-  if (!state.habits.length) return 0;
-  var done = state.habits.filter(function (h) { return h.checks[dateStr]; }).length;
-  return Math.round(done / state.habits.length * 100);
-}
-// Weekly column chart in plain HTML (crisp text at any width): labels[] + values[] (0-100).
-function weekBars(labels, values, todayIdx) {
-  return '<div class="week-chart">' + values.map(function (raw, i) {
-    var v = Math.max(0, Math.min(100, raw));
-    return '<div class="wc-day' + (i === todayIdx ? ' is-today' : '') + '" title="' + esc(labels[i]) + ': ' + v + '%">' +
-      '<span class="wc-val">' + v + '%</span>' +
-      '<div class="wc-col"><span style="height:' + v + '%"></span></div>' +
-      '<span class="wc-lbl">' + esc(labels[i]) + '</span></div>';
-  }).join('') + '</div>';
-}
-// Horizontal bars for category totals: label + amount on top, bar underneath.
+/* ---------- spending by category + wallets ---------- */
 function hBars(rows) { // rows: [{label, value}]
   var max = Math.max.apply(null, [1].concat(rows.map(function (r) { return r.value; })));
   return '<ul class="hbars">' + rows.map(function (r) {
@@ -1290,47 +899,14 @@ function hBars(rows) { // rows: [{label, value}]
       '<div class="hb-track"><span style="width:' + pct + '%"></span></div></li>';
   }).join('') + '</ul>';
 }
-function renderDashboard() {
-  var t = todayStr();
-  var now = new Date(), hr = now.getHours();
-  $('#greeting').textContent = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
-  $('#todayLabel').textContent = WEEKDAYS[now.getDay()] + ', ' + MONTHS[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
-  // habits
-  var done = state.habits.filter(function (h) { return h.checks[t]; }).length;
-  $('#dashHabits').textContent = done + '/' + state.habits.length;
-  $('#dashHabitsSub').textContent = state.habits.length ? (done === state.habits.length ? 'all done today 🎉' : 'completed today') : 'add habits to get started';
-  var bar = $('#dashHabitsBar');
-  if (bar) bar.style.width = (state.habits.length ? Math.round(done / state.habits.length * 100) : 0) + '%';
-  // health (today)
-  var todays = state.health.filter(function (h) { return h.date === t; });
-  var water = todays.reduce(function (a, h) { return a + (h.water || 0); }, 0);
-  var sleeps = todays.map(function (h) { return h.sleep; }).filter(function (v) { return v != null; });
-  $('#dashHealth').textContent = (water ? water + ' 💧' : '–') + (sleeps.length ? ' · ' + sleeps[0] + 'h 😴' : '');
-  if (!todays.length) $('#dashHealth').textContent = 'No log yet';
-  var workouts = todays.filter(function (h) { return (h.workout || 0) > 0; }).length;
-  $('#dashHealthSub').textContent = todays.length ? (workouts ? 'includes a workout 💪' : 'no workout logged') : 'log water / sleep / workout';
-  // finance (month)
-  var mt = financeTotals(state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) === monthKey(t); }));
-  $('#dashFinance').textContent = money(mt.expense);
-  $('#dashFinanceSub').textContent = 'income ' + money(mt.income) + ' · balance ' + money(balanceThrough(monthKey(t)).balance);
-  // tasks
-  var open = state.tasks.filter(function (x) { return !x.done; }).length;
-  var overdue = state.tasks.filter(function (x) { return !x.done && x.due && x.due < t; }).length;
-  $('#dashTasks').textContent = open + ' open';
-  $('#dashTasksSub').textContent = overdue ? overdue + ' overdue' : state.tasks.length ? 'nothing overdue 🎉' : 'add tasks to get started';
-  // charts
-  var days = last7();
-  var labels = days.map(function (d) { return d === t ? 'Today' : WEEKDAYS[parseD(d).getDay()]; });
-  var vals = days.map(habitDayPct);
-  $('#chartHabitsWeek').innerHTML = state.habits.length ? weekBars(labels, vals, days.indexOf(t)) : '<p class="empty">Add a habit to see your week.</p>';
-  var byCat = spendByCategory(monthKey(t));
+var RANGE_LABEL = { today: 'Today', week: 'This week', all: 'All time' };
+function renderSpendChart(byCat, label) {
   var rows = Object.keys(byCat).map(function (k) { return byCat[k]; })
-    .sort(function (a, b) { return b.value - a.value; }).slice(0, 6);
-  $('#chartSpendCat').innerHTML = rows.length ? hBars(rows) : '<p class="empty">No spending this month yet.</p>';
-  renderWallets();
+    .sort(function (x, y) { return y.value - x.value; }).slice(0, 8);
+  $('#spendMonth').textContent = '· ' + label;
+  $('#chartSpendCat').innerHTML = rows.length ? hBars(rows) : '<p class="empty">No spending ' + (label === 'All time' ? 'yet' : 'for ' + esc(label)) + '.</p>';
 }
 function renderWallets() {
-  paintWallets($('#walletBalances'), $('#walletEmpty'), $('#walletTotal'));
   paintWallets($('#finWalletBalances'), $('#finWalletEmpty'), $('#finWalletTotal'));
 }
 var WALLET_STYLE = { // [initials, color]
@@ -1368,9 +944,7 @@ function markBackedUp() {
   try { localStorage.setItem(BACKUP_KEY, String(Date.now())); localStorage.removeItem(BACKUP_SNOOZE_KEY); } catch (e) {}
   renderBackupNudge(); updateStorageInfo();
 }
-function recordCount() {
-  return state.habits.length + state.health.length + state.finance.length + state.goals.length + state.tasks.length;
-}
+function recordCount() { return state.finance.length + state.budgets.length + legacyCount(state.legacy); }
 function daysAgoText(ts) {
   var days = Math.floor((Date.now() - ts) / DAY_MS);
   return days <= 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago';
@@ -1391,10 +965,9 @@ function buildExport() {
     app: 'personal-tracker',
     version: SCHEMA_VERSION,
     exportDate: new Date().toISOString(),
-    data: {
-      habits: state.habits, health: state.health,
-      finance: state.finance, goals: state.goals, tasks: state.tasks, budgets: state.budgets
-    }
+    data: state.legacy
+      ? { finance: state.finance, budgets: state.budgets, legacy: state.legacy }
+      : { finance: state.finance, budgets: state.budgets }
   };
 }
 function downloadJson(obj, filename) {
@@ -1418,11 +991,12 @@ function validateImport(obj) {
   for (var i = 0; i < names.length; i++) {
     if (checkArr(names[i]) === null) return { ok: false, error: 'Field "' + names[i] + '" must be an array.' };
   }
+  if (data.legacy !== undefined && (typeof data.legacy !== 'object' || Array.isArray(data.legacy))) return { ok: false, error: 'Field "legacy" must be an object.' };
   var candidate = {
     version: Number(obj.version) || SCHEMA_VERSION,
-    habits: data.habits || [], health: data.health || [],
-    finance: data.finance || [], goals: data.goals || [], tasks: data.tasks || [],
-    budgets: data.budgets || [],
+    finance: data.finance || [], budgets: data.budgets || [],
+    legacy: data.legacy || null,
+    habits: data.habits, health: data.health, goals: data.goals, tasks: data.tasks, // backups from the old all-in-one app
     settings: { theme: currentTheme() }
   };
   try {
@@ -1435,16 +1009,17 @@ function validateImport(obj) {
 // Merge: keep existing ids; imported rows with colliding ids get fresh ids.
 function mergeStates(base, incoming) {
   var out = JSON.parse(JSON.stringify(base));
-  ['habits', 'health', 'finance', 'goals', 'tasks'].forEach(function (key) {
-    var ids = {};
-    out[key].forEach(function (r) { ids[r.id] = true; });
-    incoming[key].forEach(function (r) {
-      var row = JSON.parse(JSON.stringify(r));
-      if (!row.id || ids[row.id]) row.id = uid();
-      ids[row.id] = true;
-      out[key].push(row);
-    });
+  var ids = {};
+  out.finance.forEach(function (r) { ids[r.id] = true; });
+  incoming.finance.forEach(function (r) {
+    var row = JSON.parse(JSON.stringify(r));
+    if (!row.id || ids[row.id]) row.id = uid();
+    ids[row.id] = true;
+    out.finance.push(row);
   });
+  // old habits/health/goals/tasks: keep yours; only take the file's if you have none
+  // (merging them would pile up hidden duplicates nobody can see or delete)
+  if (!out.legacy && incoming.legacy) out.legacy = JSON.parse(JSON.stringify(incoming.legacy));
   // budgets: keep your current limits, add the imported ones for other categories
   out.budgets = (out.budgets || []).slice();
   (incoming.budgets || []).forEach(function (b) {
@@ -1468,7 +1043,9 @@ function initDataButtons() {
   });
   $('#exportBtnTop').addEventListener('click', doExport);
   $('#resetBtn').addEventListener('click', function () {
-    if (!confirm('Delete ALL local data (habits, health, finance, tasks)? This cannot be undone.\n\nTip: Export a backup first.')) return;
+    var old = legacyCount(state.legacy);
+    if (!confirm('Delete ALL local data: transactions, budgets' + (old ? ' and ' + old + ' old habit/health/goal/task records from the earlier version' : '') +
+      '? This cannot be undone.\n\nTip: Download a backup first.')) return;
     if (!confirm('Really erase everything? Last chance!')) return;
     state = defaultState();
     state.settings.theme = currentTheme();
@@ -1492,8 +1069,10 @@ function initDataButtons() {
       if (!res.ok) { showMsg('Import failed: ' + res.error, true); return; }
       pendingImport = res.data;
       var d = res.data;
-      $('#importSummary').textContent = 'Found ' + d.habits.length + ' habits, ' + d.health.length + ' health entries, ' +
-        d.finance.length + ' transactions, ' + d.goals.length + ' goals, ' + d.tasks.length + ' tasks, ' + d.budgets.length + ' budgets (v' + (obj.version || '?') + ', exported ' + (obj.exportDate || 'unknown date') + ').';
+      var old = legacyCount(d.legacy);
+      $('#importSummary').textContent = 'Found ' + d.finance.length + ' transactions and ' + d.budgets.length + ' budgets' +
+        (old ? ', plus ' + old + ' old habit/health/goal/task records' : '') +
+        ' (v' + (obj.version || '?') + ', exported ' + (obj.exportDate || 'unknown date') + ').';
       $('#importBox').hidden = false;
       $('#importReplace').focus();
     };
@@ -1505,8 +1084,12 @@ function initDataButtons() {
   });
   $('#importReplace').addEventListener('click', function () {
     if (!pendingImport) return;
-    if (!confirm('Replace ALL current data with the imported file?')) return;
+    var keepOld = state.legacy && !pendingImport.legacy;
+    if (!confirm('Replace all transactions and budgets with the imported file?' +
+      (state.legacy && pendingImport.legacy ? '\n\nYour old habit/health/goal/task data will also be replaced by the copy in the file.' : ''))) return;
+    var oldLegacy = state.legacy;
     state = pendingImport;
+    if (keepOld) state.legacy = oldLegacy; // the file has none: don't silently drop yours
     state.settings.theme = currentTheme();
     pendingImport = null; $('#importBox').hidden = true;
     save(); renderAll();
@@ -1623,24 +1206,23 @@ function initPWA() {
 var renderedDay = todayStr();
 function renderAll() {
   renderedDay = todayStr();
-  renderDashboard(); renderHabits(); renderHealth(); renderFinance(); renderTasks();
+  renderFinance(); renderWallets();
   renderBackupNudge(); updateStorageInfo();
 }
 // Installed apps stay open for days: when we come back after midnight,
-// move "today" forward (checklist, default form dates, current month).
+// move "today" forward (default form date, current month).
 function checkDayRollover() {
   var t = todayStr();
   if (t === renderedDay) return;
   var prev = renderedDay;
-  if (!editingHealthId && $('#healthDate').value === prev) $('#healthDate').value = t;
   if (!editingFinanceId && $('#finDate').value === prev) $('#finDate').value = t;
   if (financeMonth === monthKey(prev)) financeMonth = monthKey(t);
   renderAll();
 }
 document.addEventListener('DOMContentLoaded', function () {
   load();
-  initTheme(); initTabs();
-  initHabits(); initHealth(); initFinance(); initBudgets(); initTasks(); initDataButtons();
+  initTheme();
+  initFinance(); initBudgets(); initDataButtons();
   initPWA();
   renderAll();
   document.addEventListener('visibilitychange', function () {

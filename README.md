@@ -1,18 +1,21 @@
-# Personal Tracker
+# Finance Tracker
 
-A lightweight, private personal tracker that runs as a **static site** — no frameworks, no build step, no backend, no CDNs. All data stays in your browser (`localStorage`). Works offline and loads instantly.
+A lightweight, private finance tracker (₱) that runs as a **static site** — no frameworks, no build step, no backend, no CDNs. All data stays in your browser (`localStorage`). Works offline and loads instantly.
 
-Tabs: **Home (dashboard) · Habits · Health · Finance · Goals & Tasks**
+One page: balance, wallets, budgets, spending by category and transactions.
 
 ## Features
 
-- **Dashboard:** today's habits, water/sleep, month spending, open tasks + 2 hand-drawn SVG charts (weekly habits, spending by category).
-- **Habits:** daily checklist + 🔥 streak counter, add/edit/delete.
-- **Health:** water, sleep, workout, weight + date/note, with Today/Week/Month/All filter.
-- **Finance:** income/expense + amount (₱, auto-comma)/category/description/date + payment method (Cash, GCash, Maya, cards, bank) on expenses, monthly income/expense/balance, date filter. **Transfers** (e.g. Maya → GCash) move money between wallets without counting as spending — only the fee counts as an expense. **Wallet balances** on the dashboard show net per payment method, derived from your transactions. **Monthly budgets** per expense category show what is left for the viewed month (amber at 80%, red when over).
-- **Goals & Tasks:** tasks with due date, priority, done/undone, optional goal link; goal progress % = done ÷ linked tasks.
-- **Data:** a Home reminder when you have not backed up in 14 days (or ever; "Later" snoozes 3 days), export JSON backup, import with Replace/Merge, reset all (double confirm). Deleting a habit, health entry, transaction, goal or task shows an **Undo** toast instead of a confirm popup. Corrupted storage is detected and backed up, never crashes.
-- **Design:** mobile-first responsive with an app-style frosted bottom tab bar on phones, a floating "Add transaction" button, bottom-sheet dialog with sticky actions, transactions grouped by day (tap a row to edit; delete from the sheet), habit 7-day dots, deep links per tab (`#habits`, `#finance`, …), auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, labels, keyboard-friendly. Still zero dependencies and no build step.
+- **Transactions:** income / expense / transfer with amount (₱, auto-comma), category (on-screen picker with presets plus your own), payment method (Cash, GCash, Maya, cards, bank), date and description. Grouped by day; tap a row to edit. Month / Week / Today / All filter and a month navigator.
+- **Balance:** month income and expenses, plus a balance that carries over from earlier months.
+- **Transfers** (e.g. Maya → GCash) move money between wallets without counting as spending; only the fee counts as an expense.
+- **Wallets:** all-time balance per payment method, derived from your transactions.
+- **Budgets:** a monthly limit per expense category (and transfer fees), showing what is left for the viewed month (amber at 80%, red when over).
+- **Spending by category** for the viewed month.
+- **Data:** a reminder when you have not backed up in 14 days (or ever; "Later" snoozes 3 days), JSON backup download, import with Replace/Merge, reset all (double confirm). Deleting a transaction shows an **Undo** toast instead of a confirm popup. Corrupted storage is detected and backed up, never crashes.
+- **Design:** mobile-first (tuned for ~384px phones like the Galaxy S23 Ultra), floating + button, bottom-sheet dialogs with sticky actions, auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, keyboard-friendly. Zero dependencies and no build step.
+
+> This app used to also track habits, health and goals/tasks. Those sections were removed; any old data from them is kept untouched (as `legacy` in storage and backups), so nothing was lost. Import → Replace keeps it unless the file has its own copy, Merge never duplicates it, and Reset says how many old records it will delete.
 
 ## Files
 
@@ -48,19 +51,19 @@ Updates: edit files, commit, push — Pages redeploys automatically. No build st
 
 ## Import / Export
 
-**Export (Download backup):** Home → *Your data* → **Download backup**, or the **Export** button in the header. You get one file like `personal-tracker-2026-10-04.json`:
+**Export (Download backup):** *Your data* (bottom of the page) → **Download backup**, or the **Export** button in the header. You get one file like `personal-tracker-2026-10-04.json`:
 
 ```json
 {
   "app": "personal-tracker",
   "version": 1,
   "exportDate": "2026-10-04T12:00:00.000Z",
-  "data": { "habits": [], "health": [], "finance": [], "goals": [], "tasks": [], "budgets": [] }
+  "data": { "finance": [], "budgets": [] }
 }
 ```
 
-**Import:** Home → *Your data* → **Import JSON…** → pick a backup file.
-- The file is parsed and **validated** (must be JSON with array fields for habits/health/finance/goals/tasks; a raw state object is also accepted).
+**Import:** *Your data* (bottom of the page) → **Import JSON…** → pick a backup file.
+- The file is parsed and **validated** (must be JSON with array fields such as finance and budgets; older backups that also hold habits/health/goals/tasks still import; a raw state object is also accepted).
 - If invalid, you see a friendly error and nothing changes.
 - If valid, choose **Replace existing** (overwrite everything) or **Merge with existing** (append; ID collisions get fresh IDs) or **Cancel**.
 

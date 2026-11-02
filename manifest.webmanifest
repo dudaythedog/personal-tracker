@@ -1,7 +1,7 @@
 {
-  "name": "Personal Tracker",
-  "short_name": "Tracker",
-  "description": "Lightweight personal tracker: habits, health, finance, goals. Private, offline, no account.",
+  "name": "Finance Tracker",
+  "short_name": "Finance",
+  "description": "Simple finance tracker: income, expenses, wallets and budgets in ₱. Private, offline, no account.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

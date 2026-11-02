@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="description" content="Lightweight personal tracker: habits, health, finance, goals. Private, offline, no account.">
+<meta name="description" content="Simple finance tracker: income, expenses, wallets and budgets in ₱. Private, offline, no account.">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12151b" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
-<title>Personal Tracker</title>
+<title>Finance Tracker</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
@@ -16,18 +16,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Tracker">
+<meta name="apple-mobile-web-app-title" content="Finance">
 </head>
 <body>
 <!-- icon sprite (stroke icons, inherit currentColor) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
-    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
-    <symbol id="i-habits" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></symbol>
-    <symbol id="i-health" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z"/></symbol>
     <symbol id="i-finance" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><path d="M16 14.5h2"/></symbol>
-    <symbol id="i-tasks" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
-    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></symbol>
@@ -50,221 +45,23 @@
 <header class="app-header">
   <div class="header-inner">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.2" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="2.3" fill="currentColor"/></svg></span>
+      <span class="brand-mark" aria-hidden="true"><svg class="ico"><use href="#i-finance"/></svg></span>
       <div>
-        <h1>Personal Tracker</h1>
+        <h1>Finance Tracker</h1>
         <p class="tagline">Private · Offline · On your device</p>
       </div>
     </div>
     <div class="header-actions">
       <button id="installBtn" type="button" class="btn btn-sm" hidden><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> Install</button>
       <button id="themeToggle" type="button" class="btn btn-ghost btn-sm theme-toggle" aria-label="Theme: Auto"><svg class="ico" aria-hidden="true"><use href="#i-auto"/></svg> <span class="btn-text">Auto</span></button>
-      <button id="exportBtnTop" type="button" class="btn btn-ghost btn-sm hide-mobile"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> Export</button>
+      <button id="exportBtnTop" type="button" class="btn btn-ghost btn-sm export-top" aria-label="Download backup"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> <span class="btn-text">Export</span></button>
     </div>
   </div>
-  <nav class="tabs" aria-label="Tracker sections">
-    <button type="button" class="tab is-active" data-tab="dashboard" aria-current="page"><span class="tab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="tab-label">Home</span></button>
-    <button type="button" class="tab" data-tab="habits"><span class="tab-ico"><svg class="ico" aria-hidden="true"><use href="#i-habits"/></svg></span><span class="tab-label">Habits</span></button>
-    <button type="button" class="tab" data-tab="health"><span class="tab-ico"><svg class="ico" aria-hidden="true"><use href="#i-health"/></svg></span><span class="tab-label">Health</span></button>
-    <button type="button" class="tab" data-tab="finance"><span class="tab-ico"><svg class="ico" aria-hidden="true"><use href="#i-finance"/></svg></span><span class="tab-label">Finance</span></button>
-    <button type="button" class="tab" data-tab="tasks"><span class="tab-ico"><svg class="ico" aria-hidden="true"><use href="#i-tasks"/></svg></span><span class="tab-label">Goals</span></button>
-  </nav>
 </header>
 
 <main id="main" class="container">
 
-  <!-- DASHBOARD -->
-  <section id="view-dashboard" class="view is-active" aria-labelledby="h-dashboard">
-    <div class="page-head">
-      <p id="todayLabel" class="eyebrow"></p>
-      <h2 id="h-dashboard"><span id="greeting">Today</span></h2>
-    </div>
-
-    <div id="backupNudge" class="card backup-nudge" role="region" aria-labelledby="backupNudgeTitle" hidden>
-      <span class="bn-ico" aria-hidden="true">💾</span>
-      <div class="bn-text">
-        <strong id="backupNudgeTitle">No backup yet</strong>
-        <span class="muted-sm">Your data lives only on this device. Save a copy in case it gets cleared.</span>
-      </div>
-      <div class="bn-actions">
-        <button id="backupNudgeBtn" type="button" class="btn btn-sm"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> Back up</button>
-        <button id="backupNudgeLater" type="button" class="btn btn-ghost btn-sm">Later</button>
-      </div>
-    </div>
-
-    <div class="grid kpis">
-      <a class="card kpi k-habits" href="#habits">
-        <div class="kpi-top">
-          <span class="kpi-ico" aria-hidden="true"><svg class="ico"><use href="#i-habits"/></svg></span>
-          <h3>Habits</h3>
-        </div>
-        <p class="big" id="dashHabits">–</p>
-        <div class="progress kpi-progress" aria-hidden="true"><span id="dashHabitsBar" style="width:0%"></span></div>
-        <p class="muted" id="dashHabitsSub"></p>
-      </a>
-      <a class="card kpi k-health" href="#health">
-        <div class="kpi-top">
-          <span class="kpi-ico" aria-hidden="true"><svg class="ico"><use href="#i-health"/></svg></span>
-          <h3>Health</h3>
-        </div>
-        <p class="big" id="dashHealth">–</p>
-        <p class="muted" id="dashHealthSub"></p>
-      </a>
-      <a class="card kpi k-finance" href="#finance">
-        <div class="kpi-top">
-          <span class="kpi-ico" aria-hidden="true"><svg class="ico"><use href="#i-finance"/></svg></span>
-          <h3>Spending</h3>
-        </div>
-        <p class="big" id="dashFinance">–</p>
-        <p class="muted" id="dashFinanceSub"></p>
-      </a>
-      <a class="card kpi k-tasks" href="#tasks">
-        <div class="kpi-top">
-          <span class="kpi-ico" aria-hidden="true"><svg class="ico"><use href="#i-tasks"/></svg></span>
-          <h3>Tasks</h3>
-        </div>
-        <p class="big" id="dashTasks">–</p>
-        <p class="muted" id="dashTasksSub"></p>
-      </a>
-    </div>
-
-    <article class="card install-card" id="installCard" hidden>
-      <h3>Install the app</h3>
-      <p class="muted small" id="installText">Add this tracker to your home screen for quick, fullscreen, offline access.</p>
-      <div class="row wrap">
-        <button id="installBtnCard" type="button" class="btn">Install</button>
-        <button id="installDismiss" type="button" class="btn btn-ghost">Not now</button>
-      </div>
-      <p class="meta" id="installIosHint" hidden>On iPhone / iPad: tap <strong>Share</strong> (⎙) → <strong>Add to Home Screen</strong>. No download needed.</p>
-    </article>
-
-    <article class="card">
-      <div class="card-head">
-        <h3>Wallets</h3>
-        <span class="card-head-value" id="walletTotal"></span>
-      </div>
-      <p class="muted small wallet-note"><span class="hide-mobile">All-time balance per payment method. Transfers move money between wallets; fees count as spending.</span><span class="only-mobile">Transfers move money; fees count as spending.</span></p>
-      <div id="walletBalances" class="wallets"></div>
-      <p id="walletEmpty" class="empty">No wallet activity yet — log a transaction with a payment method.</p>
-    </article>
-
-    <div class="grid cards-2">
-      <article class="card">
-        <div class="card-head">
-          <h3>Habit completion</h3>
-          <span class="muted-sm">Last 7 days</span>
-        </div>
-        <div id="chartHabitsWeek" role="img" aria-label="Bar chart of habit completion for the last 7 days"></div>
-      </article>
-      <article class="card">
-        <div class="card-head">
-          <h3>Spending by category</h3>
-          <span class="muted-sm">This month</span>
-        </div>
-        <div id="chartSpendCat" role="img" aria-label="Bar chart of spending by category this month"></div>
-      </article>
-    </div>
-
-    <article class="card">
-      <h3>Your data</h3>
-      <p class="muted small">Everything is stored only in this browser (<code>localStorage</code>). Nothing leaves your device. Back up regularly with Export.</p>
-      <div class="row wrap data-actions">
-        <button id="exportBtn" type="button" class="btn"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> Download backup</button>
-        <label class="btn btn-secondary file-label" for="importFile"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg> Import JSON…</label>
-        <input id="importFile" type="file" accept="application/json,.json" class="visually-hidden">
-        <button id="resetBtn" type="button" class="btn btn-danger">Reset all data</button>
-      </div>
-      <div id="importBox" class="import-box" hidden>
-        <p><strong>Import found valid data.</strong> <span id="importSummary"></span></p>
-        <p>How do you want to proceed?</p>
-        <div class="row wrap">
-          <button id="importReplace" type="button" class="btn btn-danger">Replace existing</button>
-          <button id="importMerge" type="button" class="btn btn-secondary">Merge with existing</button>
-          <button id="importCancel" type="button" class="btn btn-ghost">Cancel</button>
-        </div>
-      </div>
-    </article>
-  </section>
-
-  <!-- HABITS -->
-  <section id="view-habits" class="view" aria-labelledby="h-habits" hidden>
-    <div class="page-head"><h2 id="h-habits">Habits</h2></div>
-    <article class="card">
-      <h3 id="habitFormTitle">Add a habit</h3>
-      <form id="habitForm" class="inline-form">
-        <div class="field grow">
-          <label for="habitName" class="visually-hidden">Habit name</label>
-          <input id="habitName" name="habitName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Read 20 minutes">
-        </div>
-        <div class="row">
-          <button type="submit" class="btn" id="habitSubmit">Add habit</button>
-          <button type="button" class="btn btn-ghost" id="habitCancel" hidden>Cancel</button>
-        </div>
-      </form>
-    </article>
-    <article class="card">
-      <div class="card-head">
-        <h3>Today's checklist</h3>
-        <span class="muted-sm" id="habitProgress"></span>
-      </div>
-      <ul id="habitList" class="check-list"></ul>
-      <p id="habitEmpty" class="empty">No habits yet. Add your first one above.</p>
-    </article>
-  </section>
-
-  <!-- HEALTH -->
-  <section id="view-health" class="view" aria-labelledby="h-health" hidden>
-    <div class="page-head"><h2 id="h-health">Health</h2></div>
-    <article class="card">
-      <h3 id="healthFormTitle">Log health</h3>
-      <form id="healthForm" class="form-grid health-form">
-        <div class="field hf-date">
-          <label for="healthDate">Date</label>
-          <input id="healthDate" type="date" required>
-        </div>
-        <div class="field hf-note">
-          <label for="healthNote">Note <span class="muted-sm">(optional)</span></label>
-          <input id="healthNote" type="text" maxlength="140" autocomplete="off">
-        </div>
-        <div class="field hf-metric">
-          <label for="healthWater">💧 Water <span class="muted-sm">(glasses)</span></label>
-          <input id="healthWater" type="number" inputmode="numeric" min="0" max="30" step="1" placeholder="0">
-        </div>
-        <div class="field hf-metric">
-          <label for="healthSleep">😴 Sleep <span class="muted-sm">(hours)</span></label>
-          <input id="healthSleep" type="number" inputmode="decimal" min="0" max="24" step="0.5" placeholder="0">
-        </div>
-        <div class="field hf-metric">
-          <label for="healthWorkout">🏃 Workout <span class="muted-sm">(min)</span></label>
-          <input id="healthWorkout" type="number" inputmode="numeric" min="0" max="600" step="1" placeholder="0">
-        </div>
-        <div class="field hf-metric">
-          <label for="healthWeight">⚖️ Weight <span class="muted-sm">(kg)</span></label>
-          <input id="healthWeight" type="number" inputmode="decimal" min="20" max="300" step="0.1" placeholder="—">
-        </div>
-        <div class="row form-span">
-          <button type="submit" class="btn" id="healthSubmit">Save entry</button>
-          <button type="button" class="btn btn-ghost" id="healthCancel" hidden>Cancel</button>
-        </div>
-      </form>
-    </article>
-    <div class="toolbar">
-      <div class="seg" role="group" aria-label="Health date filter">
-        <button type="button" data-range="today" class="seg-btn is-active">Today</button>
-        <button type="button" data-range="week" class="seg-btn">Week</button>
-        <button type="button" data-range="month" class="seg-btn">Month</button>
-        <button type="button" data-range="all" class="seg-btn">All</button>
-      </div>
-    </div>
-    <article class="card">
-      <h3>Entries</h3>
-      <ul id="healthList" class="entry-list"></ul>
-      <p id="healthEmpty" class="empty">No entries for this period.</p>
-    </article>
-  </section>
-
-  <!-- FINANCE -->
-  <section id="view-finance" class="view" aria-labelledby="h-finance" hidden>
+  <section id="view-finance" class="view is-active" aria-labelledby="h-finance">
     <div class="page-head page-head-row">
       <h2 id="h-finance">Finance</h2>
       <div class="month-nav" id="finMonthNav">
@@ -277,6 +74,17 @@
         <button type="button" class="btn btn-ghost btn-icon" id="finNextMonth" aria-label="Next month"><svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
       </div>
       <button type="button" class="btn fab" id="openFinanceModal" aria-label="Add transaction"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> <span class="fab-label">Add transaction</span></button>
+    </div>
+    <div id="backupNudge" class="card backup-nudge" role="region" aria-labelledby="backupNudgeTitle" hidden>
+      <span class="bn-ico" aria-hidden="true">💾</span>
+      <div class="bn-text">
+        <strong id="backupNudgeTitle">No backup yet</strong>
+        <span class="muted-sm">Your data lives only on this device. Save a copy in case it gets cleared.</span>
+      </div>
+      <div class="bn-actions">
+        <button id="backupNudgeBtn" type="button" class="btn btn-sm"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> Back up</button>
+        <button id="backupNudgeLater" type="button" class="btn btn-ghost btn-sm">Later</button>
+      </div>
     </div>
     <div class="toolbar fin-toolbar">
       <div class="seg" role="group" aria-label="Finance date filter">
@@ -307,6 +115,7 @@
           <h3>Wallets</h3>
           <span class="card-head-value" id="finWalletTotal"></span>
         </div>
+        <p class="muted small wallet-note"><span class="hide-mobile">All-time balance per payment method. Transfers move money between wallets; fees count as spending.</span><span class="only-mobile">Transfers move money; fees count as spending.</span></p>
         <div id="finWalletBalances" class="wallets"></div>
         <p id="finWalletEmpty" class="empty">No wallet activity yet.</p>
       </article>
@@ -435,15 +244,23 @@
         </div>
       </form>
     </dialog>
-    <article class="card budget-card">
-      <div class="card-head">
-        <h3>Budgets <span class="muted-sm" id="budgetMonth"></span></h3>
-        <span class="card-head-value" id="budgetTotal"></span>
-      </div>
-      <ul id="budgetList" class="budgets"></ul>
-      <p id="budgetEmpty" class="empty">Set a monthly limit for categories like Groceries or Dining Out to see how much is left.</p>
-      <button type="button" class="btn btn-secondary btn-sm budget-edit" id="budgetEdit">Set budgets</button>
-    </article>
+    <div class="grid cards-2 align-start">
+      <article class="card budget-card">
+        <div class="card-head">
+          <h3>Budgets <span class="muted-sm" id="budgetMonth"></span></h3>
+          <span class="card-head-value" id="budgetTotal"></span>
+        </div>
+        <ul id="budgetList" class="budgets"></ul>
+        <p id="budgetEmpty" class="empty">Set a monthly limit for categories like Groceries or Dining Out to see how much is left.</p>
+        <button type="button" class="btn btn-secondary btn-sm budget-edit" id="budgetEdit">Set budgets</button>
+      </article>
+      <article class="card">
+        <div class="card-head">
+          <h3>Spending by category <span class="muted-sm" id="spendMonth"></span></h3>
+        </div>
+        <div id="chartSpendCat" role="img" aria-label="Bar chart of spending by category"></div>
+      </article>
+    </div>
     <dialog id="budgetDialog" aria-labelledby="budgetTitle">
       <div class="dialog-head">
         <h3 id="budgetTitle">Monthly budgets</h3>
@@ -467,78 +284,38 @@
       <ul id="financeList" class="tx-groups"></ul>
       <p id="financeEmpty" class="empty">No transactions for this period.</p>
     </article>
-  </section>
-
-  <!-- TASKS / GOALS -->
-  <section id="view-tasks" class="view" aria-labelledby="h-tasks" hidden>
-    <div class="page-head"><h2 id="h-tasks">Goals &amp; Tasks</h2></div>
-    <div class="grid cards-2 align-start">
-      <article class="card">
-        <h3 id="taskFormTitle">Add a task</h3>
-        <form id="taskForm" class="form-grid">
-          <div class="field">
-            <label for="taskTitle">Task</label>
-            <input id="taskTitle" type="text" required maxlength="140" autocomplete="off" placeholder="What needs doing?">
-          </div>
-          <div class="form-grid cols-2 cols-2-always">
-            <div class="field">
-              <label for="taskDue">Due <span class="muted-sm">(optional)</span></label>
-              <input id="taskDue" type="date">
-            </div>
-            <div class="field">
-              <label for="taskPriority">Priority</label>
-              <select id="taskPriority">
-                <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-          </div>
-          <div class="field">
-            <label for="taskGoal">Link to goal <span class="muted-sm">(optional)</span></label>
-            <select id="taskGoal"><option value="">— No goal —</option></select>
-          </div>
-          <div class="row">
-            <button type="submit" class="btn" id="taskSubmit">Add task</button>
-            <button type="button" class="btn btn-ghost" id="taskCancel" hidden>Cancel</button>
-          </div>
-        </form>
-        <div class="list-head">
-          <h3>Tasks</h3>
-          <div class="seg seg-sm" role="group" aria-label="Task filter">
-            <button type="button" data-range="open" class="seg-btn is-active">Open</button>
-            <button type="button" data-range="done" class="seg-btn">Done</button>
-            <button type="button" data-range="all" class="seg-btn">All</button>
-          </div>
+    <article class="card install-card" id="installCard" hidden>
+      <h3>Install the app</h3>
+      <p class="muted small" id="installText">Add this tracker to your home screen for quick, fullscreen, offline access.</p>
+      <div class="row wrap">
+        <button id="installBtnCard" type="button" class="btn">Install</button>
+        <button id="installDismiss" type="button" class="btn btn-ghost">Not now</button>
+      </div>
+      <p class="meta" id="installIosHint" hidden>On iPhone / iPad: tap <strong>Share</strong> (⎙) → <strong>Add to Home Screen</strong>. No download needed.</p>
+    </article>
+    <article class="card">
+      <h3>Your data</h3>
+      <p class="muted small">Everything is stored only in this browser (<code>localStorage</code>). Nothing leaves your device. Back up regularly with Export.</p>
+      <div class="row wrap data-actions">
+        <button id="exportBtn" type="button" class="btn"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg> Download backup</button>
+        <label class="btn btn-secondary file-label" for="importFile"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg> Import JSON…</label>
+        <input id="importFile" type="file" accept="application/json,.json" class="visually-hidden">
+        <button id="resetBtn" type="button" class="btn btn-danger">Reset all data</button>
+      </div>
+      <div id="importBox" class="import-box" hidden>
+        <p><strong>Import found valid data.</strong> <span id="importSummary"></span></p>
+        <p>How do you want to proceed?</p>
+        <div class="row wrap">
+          <button id="importReplace" type="button" class="btn btn-danger">Replace existing</button>
+          <button id="importMerge" type="button" class="btn btn-secondary">Merge with existing</button>
+          <button id="importCancel" type="button" class="btn btn-ghost">Cancel</button>
         </div>
-        <ul id="taskList" class="check-list"></ul>
-        <p id="taskEmpty" class="empty">No tasks here.</p>
-      </article>
-      <article class="card">
-        <h3 id="goalFormTitle">Add a goal</h3>
-        <form id="goalForm" class="form-grid">
-          <div class="field">
-            <label for="goalTitle">Goal title</label>
-            <input id="goalTitle" type="text" required maxlength="100" autocomplete="off" placeholder="e.g. Run a 10K">
-          </div>
-          <div class="field">
-            <label for="goalDeadline">Target date <span class="muted-sm">(optional)</span></label>
-            <input id="goalDeadline" type="date">
-          </div>
-          <div class="row">
-            <button type="submit" class="btn" id="goalSubmit">Add goal</button>
-            <button type="button" class="btn btn-ghost" id="goalCancel" hidden>Cancel</button>
-          </div>
-        </form>
-        <div class="list-head"><h3>Goals</h3></div>
-        <ul id="goalList" class="entry-list"></ul>
-        <p id="goalEmpty" class="empty">No goals yet.</p>
-      </article>
-    </div>
+      </div>
+    </article>
   </section>
 
   <footer class="footer">
-    <p class="muted">Stored locally in your browser · Works offline · <span id="storageInfo"></span></p>
+    <p class="muted">Stored only on this device · Works offline · <span id="storageInfo"></span></p>
   </footer>
 </main>
 

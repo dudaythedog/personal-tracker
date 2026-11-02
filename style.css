@@ -1,4 +1,4 @@
-/* Personal Tracker — mobile-first, no dependencies, no build step.
+/* Finance Tracker — mobile-first, no dependencies, no build step.
    Theming: CSS vars + data-theme on <html> + prefers-color-scheme. */
 
 /* ---------- design tokens ---------- */
@@ -29,9 +29,7 @@
   --radius-sm: 12px;
   --maxw: 1080px;
   --header-h: 64px;
-  --nav-h: 66px;
   --gutter: 1rem;
-  --k-habits: #4f46e5; --k-health: #db2777; --k-finance: #059669; --k-tasks: #d97706;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -43,7 +41,6 @@
     --pos: #5fd394; --neg: #ff8a8f; --warn: #fbbf24;
     --shadow-sm: none; --shadow: none; --shadow-lg: 0 18px 50px -10px rgba(0, 0, 0, .7);
     --glass: rgba(20, 23, 30, .82);
-    --k-habits: #8b8cff; --k-health: #f472b6; --k-finance: #34d399; --k-tasks: #fbbf24;
   }
 }
 :root[data-theme="dark"] {
@@ -55,7 +52,6 @@
   --pos: #5fd394; --neg: #ff8a8f; --warn: #fbbf24;
   --shadow-sm: none; --shadow: none; --shadow-lg: 0 18px 50px -10px rgba(0, 0, 0, .7);
   --glass: rgba(20, 23, 30, .82);
-  --k-habits: #8b8cff; --k-health: #f472b6; --k-finance: #34d399; --k-tasks: #fbbf24;
 }
 
 /* ---------- base ---------- */
@@ -78,7 +74,6 @@ a { color: var(--accent); }
 .muted { color: var(--muted); }
 .muted-sm { color: var(--muted); font-weight: 450; font-size: .82rem; letter-spacing: 0; }
 .small { font-size: .875rem; }
-.eyebrow { margin: 0 0 .15rem; font-size: .78rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .big { font-size: 1.6rem; font-weight: 750; margin: .1rem 0; letter-spacing: -.025em; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .pos { color: var(--pos); } .neg { color: var(--neg); }
 .pos-bg { background: var(--pos); } .neg-bg { background: var(--neg); }
@@ -122,30 +117,12 @@ a { color: var(--accent); }
 .tagline { margin: 0; font-size: .74rem; color: var(--muted); }
 .header-actions { display: flex; gap: .4rem; flex: none; align-items: center; }
 
-.tabs {
-  max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter) .65rem; display: flex; gap: .3rem;
-  overflow-x: auto; scrollbar-width: none;
-}
-.tabs::-webkit-scrollbar { display: none; }
-.tab {
-  display: inline-flex; align-items: center; gap: .45rem;
-  border: 0; background: transparent; color: var(--muted); border-radius: 999px;
-  padding: .45rem .95rem .45rem .75rem; cursor: pointer; white-space: nowrap; font: inherit; font-size: .94rem; font-weight: 550;
-  min-height: 40px; flex: none; transition: background .15s, color .15s;
-}
-.tab-ico { display: inline-grid; place-items: center; }
-.tab:hover { background: var(--bg-soft); color: var(--text); }
-.tab.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
-
 .container {
   max-width: var(--maxw); margin: 0 auto; width: 100%;
   padding: 0 var(--gutter) calc(2.5rem + env(safe-area-inset-bottom));
   padding-left: max(var(--gutter), env(safe-area-inset-left));
   padding-right: max(var(--gutter), env(safe-area-inset-right));
 }
-.view.is-active { animation: view-in .22s ease-out; }
-@keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
-
 .page-head { margin: 1.5rem 0 1rem; }
 .page-head-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
 .page-head-row .month-nav { margin-left: auto; }
@@ -160,35 +137,9 @@ a { color: var(--accent); }
 .card-head-value { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .grid { display: grid; gap: 1rem; min-width: 0; margin-bottom: 1rem; }
 .grid > .card { margin: 0; }
-.cards-4, .cards-3, .cards-2 { grid-template-columns: 1fr; }
+.cards-2 { grid-template-columns: 1fr; }
 .align-start { align-items: start; }
 
-/* KPI tiles */
-.kpis { grid-template-columns: repeat(2, 1fr); gap: .75rem; }
-.kpi {
-  display: flex; flex-direction: column; gap: .15rem; text-decoration: none; color: inherit;
-  position: relative; overflow: hidden; padding: 1rem;
-  transition: border-color .15s, transform .15s, box-shadow .15s;
-}
-.kpi::after { /* soft tint in the corner */
-  content: ""; position: absolute; right: -30px; top: -30px; width: 90px; height: 90px; border-radius: 50%;
-  background: var(--kc); opacity: .07; pointer-events: none;
-}
-.kpi:hover { border-color: color-mix(in srgb, var(--kc) 45%, var(--border)); }
-.kpi:active { transform: scale(.98); }
-.kpi-top { display: flex; align-items: center; gap: .55rem; margin-bottom: .45rem; min-width: 0; }
-.kpi h3 { font-size: .82rem; font-weight: 650; color: var(--muted); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kpi .big { font-size: 1.4rem; overflow-wrap: anywhere; }
-.kpi .muted { font-size: .8rem; margin: 0; line-height: 1.35; }
-.kpi-ico {
-  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; flex: none;
-  color: var(--kc); background: color-mix(in srgb, var(--kc) 14%, transparent);
-}
-.kpi-ico .ico { width: 18px; height: 18px; }
-.kpi-progress { margin: .35rem 0 .3rem; height: 5px; }
-.kpi-progress > span { background: var(--kc); }
-.k-habits { --kc: var(--k-habits); } .k-health { --kc: var(--k-health); }
-.k-finance { --kc: var(--k-finance); } .k-tasks { --kc: var(--k-tasks); }
 
 /* wallets: compact rows */
 .wallets { display: grid; grid-template-columns: 1fr; gap: .1rem; margin: .5rem 0 0; }
@@ -227,8 +178,6 @@ a { color: var(--accent); }
   .wallet:nth-child(2) { border-top: 0; }
 }
 @media (min-width: 900px) {
-  .cards-4, .kpis { grid-template-columns: repeat(4, 1fr); }
-  .kpi .big { font-size: 1.55rem; }
   .fin-top { grid-template-columns: 1fr 1fr; align-items: start; }
   .fin-top .wallets { grid-template-columns: 1fr; }
   .fin-top .wallet:nth-child(2) { border-top: 1px solid var(--border); }
@@ -237,14 +186,8 @@ a { color: var(--accent); }
 /* ---------- forms ---------- */
 .form-grid { display: grid; gap: .85rem; }
 .cols-2 { grid-template-columns: 1fr; }
-.cols-2-always { grid-template-columns: 1fr 1fr; }
 .form-span { grid-column: 1 / -1; }
 @media (min-width: 640px) { .form-grid.cols-2 { grid-template-columns: 1fr 1fr; } }
-.health-form { grid-template-columns: 1fr 1fr; }
-@media (min-width: 900px) {
-  .health-form { grid-template-columns: repeat(4, 1fr); }
-  .health-form .hf-date, .health-form .hf-note { grid-column: span 2; }
-}
 .field { display: grid; gap: .35rem; min-width: 0; align-content: start; }
 label, .label { font-weight: 600; font-size: .85rem; color: var(--text); }
 input, select {
@@ -267,9 +210,6 @@ input[type="date"], input[type="month"] { -webkit-appearance: none; appearance: 
 input::-webkit-date-and-time-value { text-align: left; }
 input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
 .amount-input { font-variant-numeric: tabular-nums; font-weight: 650; }
-.inline-form { display: flex; gap: .6rem; flex-wrap: wrap; align-items: end; }
-.inline-form .grow { flex: 1 1 14rem; }
-.inline-form .row { flex: 0 0 auto; }
 
 /* big amount field in the finance sheet */
 .amount-wrap { position: relative; }
@@ -380,66 +320,10 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; cursor: po
 .data-actions { margin-top: .6rem; }
 
 /* ---------- lists ---------- */
-.check-list, .entry-list { list-style: none; margin: .25rem 0 0; padding: 0; display: grid; gap: .5rem; }
-.habit-row, .entry, .task-row {
-  display: flex; gap: .75rem; align-items: center;
-  border: 1px solid var(--border); border-radius: 14px; padding: .65rem .4rem .65rem .8rem; background: var(--card-2);
-  min-width: 0; overflow-wrap: anywhere; transition: background .15s, border-color .15s;
-}
-.habit-row.is-done { background: color-mix(in srgb, var(--pos) 7%, var(--card)); border-color: color-mix(in srgb, var(--pos) 28%, var(--border)); }
-
-/* custom checkboxes (round for habits, rounded-square for tasks) */
-.check-list input[type="checkbox"] {
-  -webkit-appearance: none; appearance: none;
-  display: grid; place-items: center;
-  width: 1.65rem; height: 1.65rem; min-height: 0; margin: 0; padding: 0; flex: none; cursor: pointer;
-  border: 2px solid var(--border-strong); border-radius: 50%; background: var(--card);
-  transition: background .15s, border-color .15s, transform .1s;
-}
-.task-row input[type="checkbox"] { border-radius: 8px; }
-.check-list input[type="checkbox"]:hover { border-color: var(--accent); }
-.check-list input[type="checkbox"]:active { transform: scale(.9); }
-.check-list input[type="checkbox"]::after {
-  content: ""; width: .42rem; height: .78rem; margin-top: -.15rem;
-  border: solid #fff; border-width: 0 .17rem .17rem 0; transform: rotate(45deg) scale(0);
-  transition: transform .15s;
-}
-.check-list input[type="checkbox"]:checked { background: var(--pos); border-color: var(--pos); }
-.task-row input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
-.check-list input[type="checkbox"]:checked::after { transform: rotate(45deg) scale(1); }
-:root[data-theme="dark"] .check-list input[type="checkbox"]::after { border-color: #0c0e13; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .check-list input[type="checkbox"]::after { border-color: #0c0e13; }
-}
-.check-wrap { display: grid; place-items: center; width: 44px; height: 44px; margin: -.4rem -.35rem -.4rem -.55rem; flex: none; cursor: pointer; }
-
-.grow { flex: 1 1 auto; min-width: 0; }
-.actions { display: flex; gap: 0; flex: none; }
-.actions .btn-icon { width: 38px; height: 38px; min-height: 38px; }
-.actions .btn-icon .ico { width: 1.1em; height: 1.1em; }
-.habit-name { font-weight: 600; }
-.habit-sub { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .15rem; }
-.streak { display: inline-block; font-size: .78rem; color: var(--muted); white-space: nowrap; }
-.streak.hot { color: var(--warn); font-weight: 650; }
-.week-dots { display: inline-flex; gap: 3px; }
-.week-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
-.week-dots i.on { background: var(--pos); }
-.week-dots i.today { box-shadow: 0 0 0 1.5px var(--card-2), 0 0 0 3px color-mix(in srgb, var(--pos) 55%, transparent); }
-.pill { display: inline-block; font-size: .7rem; font-weight: 650; border-radius: 999px; padding: .08rem .5rem; background: var(--bg-soft); color: var(--muted); text-transform: capitalize; vertical-align: .12em; }
-.pill.high { background: color-mix(in srgb, var(--neg) 13%, transparent); color: var(--neg); }
-.pill.medium { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
 .meta { font-size: .8rem; color: var(--muted); line-height: 1.4; }
-.meta .overdue { color: var(--neg); font-weight: 650; }
-.chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
-.chip { font-size: .8rem; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: .12rem .6rem; white-space: nowrap; }
-.done-text { text-decoration: line-through; color: var(--muted); }
 .progress { height: 6px; background: var(--bg-soft); border-radius: 999px; overflow: hidden; margin-top: .45rem; }
 .progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 999px; transition: width .4s ease; }
 .amt { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-.entry-title { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; }
-.entry-title > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.list-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: 1.5rem 0 .6rem; flex-wrap: wrap; padding-top: 1.1rem; border-top: 1px solid var(--border); }
-.list-head h3 { margin: 0; }
 .empty { color: var(--muted); text-align: center; padding: 1.4rem .5rem; margin: 0; font-size: .9rem; }
 
 /* ---------- transactions (grouped by day, tap to edit) ---------- */
@@ -471,14 +355,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; cursor: po
 .fin-ico.transfer { background: var(--accent-soft); color: var(--accent); }
 
 /* ---------- charts (HTML bars) ---------- */
-.week-chart { display: grid; grid-template-columns: repeat(7, 1fr); gap: .45rem; align-items: end; margin-top: .6rem; }
-.wc-day { display: grid; justify-items: center; gap: .3rem; min-width: 0; }
-.wc-val { font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.wc-col { width: 100%; max-width: 38px; height: 110px; background: var(--bg-soft); border-radius: 9px; display: flex; align-items: flex-end; overflow: hidden; }
-.wc-col > span { display: block; width: 100%; min-height: 3px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 55%, var(--card)); transition: height .4s ease; }
-.wc-day.is-today .wc-col > span { background: linear-gradient(180deg, var(--accent-2), var(--accent)); }
-.wc-lbl { font-size: .74rem; color: var(--muted); font-weight: 550; }
-.wc-day.is-today .wc-lbl, .wc-day.is-today .wc-val { color: var(--accent); font-weight: 700; }
 
 .hbars { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .7rem; }
 .hb-head { display: flex; justify-content: space-between; gap: .75rem; font-size: .88rem; margin-bottom: .3rem; }
@@ -570,7 +446,7 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
 #installBtn[hidden] { display: none !important; }
 
 /* =========================================================
-   Mobile (< 640px): app-style layout with a bottom tab bar
+   Mobile (< 640px): app-style layout with a floating + button
    ========================================================= */
 @media (max-width: 639px) {
   :root { --header-h: 54px; --gutter: .9rem; }
@@ -581,30 +457,11 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .brand-mark { width: 30px; height: 30px; border-radius: 10px; }
   .brand-mark svg { width: 19px; height: 19px; }
   .theme-toggle .btn-text { display: none; }
-  .header-actions .theme-toggle { width: 40px; padding: 0; border-color: transparent; }
+  .export-top .btn-text { display: none; }
+  .header-actions .theme-toggle, .header-actions .export-top { width: 40px; padding: 0; border-color: transparent; }
 
-  /* bottom navigation */
-  .tabs {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-    max-width: none; margin: 0; gap: 0; overflow: visible;
-    padding: .35rem max(.25rem, env(safe-area-inset-left)) calc(.35rem + env(safe-area-inset-bottom)) max(.25rem, env(safe-area-inset-right));
-    background: var(--glass); border-top: 1px solid var(--border);
-    -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
-  }
-  .tab {
-    flex: 1 1 0; min-width: 0; flex-direction: column; gap: .15rem;
-    padding: .2rem .1rem; min-height: 54px; border-radius: 12px; font-size: .7rem; font-weight: 600;
-  }
-  .tab-ico { width: 56px; height: 30px; border-radius: 999px; transition: background .2s, width .2s; }
-  .tab .ico { width: 23px; height: 23px; }
-  .tab:hover { background: transparent; }
-  .tab.is-active { background: transparent; color: var(--accent); font-weight: 700; }
-  .tab.is-active .tab-ico { background: var(--accent-soft); }
-  .tab.is-active .ico { stroke-width: 2.3; }
-  .container { padding-bottom: calc(var(--nav-h) + 2rem + env(safe-area-inset-bottom)); }
-  .toast { bottom: calc(var(--nav-h) + .75rem + env(safe-area-inset-bottom)); }
-  /* on Finance, sit above the round + button instead of covering it */
-  body:has(#view-finance:not([hidden])) .toast { bottom: calc(var(--nav-h) + 56px + 1.6rem + env(safe-area-inset-bottom)); }
+  /* sit above the round + button instead of covering it */
+  .toast { bottom: calc(56px + 1.6rem + env(safe-area-inset-bottom)); }
 
   /* ---- Compact spacing for ~384px phones (Galaxy S23 Ultra) on every page ---- */
   .page-head { margin: .9rem 0 .7rem; }
@@ -631,48 +488,13 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .toolbar { margin-bottom: .7rem; }
   .toolbar > .seg { width: 100%; }
   .toolbar > .seg .seg-btn { flex: 1 1 0; min-height: 34px; padding: .35rem .5rem; font-size: .88rem; }
-  .seg-sm .seg-btn { min-height: 30px; padding: .25rem .65rem; }
 
-  /* list rows */
-  .check-list, .entry-list { gap: .4rem; }
-  .habit-row, .entry, .task-row { padding: .45rem .3rem .45rem .7rem; gap: .6rem; border-radius: 12px; }
-  .list-head { margin: 1rem 0 .5rem; padding-top: .8rem; }
-
-  /* Home */
-  .kpis { gap: .55rem; }
-  .kpi { padding: .75rem .8rem; }
-  .kpi-top { margin-bottom: .25rem; gap: .45rem; }
-  .kpi-ico { width: 28px; height: 28px; border-radius: 9px; }
-  .kpi-ico .ico { width: 16px; height: 16px; }
-  .kpi .big { font-size: 1.18rem; }
-  .kpi .muted { font-size: .76rem; }
-  .kpi-progress { margin: .25rem 0 .2rem; }
+  /* wallets note, spending chart, data card */
   .wallet-note { font-size: .78rem; margin: 0; } /* phones get the one-line version */
   .only-mobile { display: inline; }
-  .week-chart { gap: .35rem; margin-top: .3rem; }
-  .wc-col { height: 80px; }
   .hbars { gap: .5rem; margin-top: .3rem; }
   .hb-head { margin-bottom: .2rem; font-size: .85rem; }
   .data-actions { margin-top: .4rem; }
-
-  /* Habits: input and Add button share one row */
-  .inline-form { gap: .5rem; }
-  /* the input takes the free space on a shared row; if the buttons wrap
-     (e.g. Save + Cancel on a 320px phone) their row stretches full width */
-  .inline-form .grow { flex: 999 1 9rem; }
-  .inline-form .row { flex: 1 0 auto; }
-
-  /* Health: Date | Note on one row, the four numbers on the next */
-  .health-form { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem .45rem; }
-  .health-form .hf-date, .health-form .hf-note { grid-column: span 2; }
-  /* inputs sit at the bottom so they line up even if one label wraps */
-  .health-form .hf-metric { align-content: end; }
-  .health-form .hf-metric label { text-align: center; font-size: .76rem; line-height: 1.25; overflow-wrap: anywhere; }
-  .health-form .hf-metric .muted-sm { display: block; font-size: .7rem; font-weight: 500; }
-  .health-form .hf-metric input { text-align: center; padding-left: .25rem; padding-right: .25rem; -moz-appearance: textfield; appearance: textfield; }
-  .health-form .hf-metric input::-webkit-inner-spin-button,
-  .health-form .hf-metric input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  .health-form .hf-date input { padding-right: .5rem; }
 
   /* Finance */
   #view-finance .page-head { flex-wrap: nowrap; }
@@ -703,24 +525,23 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   #view-finance .tx { min-height: 54px; padding: .5rem .7rem; gap: .65rem; }
   #view-finance .fin-ico { width: 34px; height: 34px; border-radius: 10px; }
 
-  /* "Add transaction" becomes a round floating button above the tab bar
+  /* "Add transaction" becomes a round floating button in the corner
      (small footprint, so it doesn't cover right-aligned amounts) */
   .fab {
     position: fixed; z-index: 25;
     right: max(1rem, env(safe-area-inset-right));
-    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + .9rem);
+    bottom: calc(env(safe-area-inset-bottom) + .9rem);
     width: 56px; height: 56px; min-height: 56px; padding: 0; border-radius: 18px;
     box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--accent) 65%, transparent), 0 2px 6px rgba(0, 0, 0, .15);
   }
   .fab .fab-label { display: none; }
   .fab .ico { width: 26px; height: 26px; stroke-width: 2.5; }
   /* leave room so the FAB never covers the last transaction / footer */
-  .container:has(> #view-finance:not([hidden])) { padding-bottom: calc(var(--nav-h) + 5rem + env(safe-area-inset-bottom)); }
+  .container { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
 
-  .form-grid > .row .btn, .inline-form .row .btn { flex: 1 1 auto; }
+  .form-grid > .row .btn { flex: 1 1 auto; }
   .data-actions .btn, .data-actions .file-label { flex: 1 1 auto; }
   .data-actions #exportBtn { flex-basis: 100%; }
-  .list-head .seg { flex: none; }
 
   /* bottom-sheet dialog */
   dialog {
@@ -769,9 +590,6 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
 @media (max-width: 380px) {
   body { font-size: 15px; }
   :root { --gutter: .75rem; }
-  .kpi { padding: .7rem .75rem; } /* tighter than the ≤639px value, not looser */
-  .kpi .big { font-size: 1.08rem; }
-  .kpi h3 { font-size: .78rem; }
   .split-value { font-size: 1rem; }
   #finIncomeMonth, #finExpenseMonth { display: none; } /* month is already in the Balance heading */
   .balance-big { font-size: 1.6rem; }
@@ -779,14 +597,6 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .fin-ico { width: 34px; height: 34px; }
   .dialog-actions #financeDelete .ico + * { display: none; }
 }
-/* very narrow phones: Date and Note get full rows, the numbers a 2×2 grid */
-@media (max-width: 359px) {
-  .health-form .hf-date, .health-form .hf-note { grid-column: 1 / -1; }
-  .health-form .hf-metric { grid-column: span 2; }
-  .health-form .hf-metric label { font-size: .8rem; }
-  .health-form .hf-metric .muted-sm { display: inline; font-size: inherit; }
-}
-
 /* landscape phones / short heights: keep dialog usable */
 @media (max-height: 500px) {
   dialog { max-height: 96vh; max-height: 96dvh; }

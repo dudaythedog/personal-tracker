@@ -1,9 +1,9 @@
-/* Personal Tracker service worker — offline app shell, no dependencies.
+/* Finance Tracker service worker — offline app shell, no dependencies.
    Network-first for same-origin GET; cache is the offline fallback. */
 'use strict';
 
 // Bump this on every deploy that changes cached files.
-var CACHE = 'personal-tracker-v14';
+var CACHE = 'personal-tracker-v15';
 var ASSETS = [
   './',
   './index.html',
