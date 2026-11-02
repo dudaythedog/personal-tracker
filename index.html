@@ -328,8 +328,12 @@
         <div class="field form-span" id="finTransferWrap" hidden>
           <div class="form-grid cols-2 nested">
             <div class="field">
-              <label for="finFrom">From wallet</label>
-              <select id="finFrom">
+              <span class="label" id="finFromLabel">From wallet</span>
+              <button type="button" class="picker-btn" id="finFromBtn" aria-haspopup="true" aria-expanded="false" aria-controls="finFromPanel" aria-labelledby="finFromLabel finFromBtnText">
+                <span id="finFromBtnText">Maya</span>
+                <svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg>
+              </button>
+              <select id="finFrom" class="visually-hidden" tabindex="-1" aria-hidden="true">
                 <option value="Cash">Cash</option>
                 <option value="GCash">GCash</option>
                 <option value="Maya" selected>Maya</option>
@@ -340,8 +344,12 @@
               </select>
             </div>
             <div class="field">
-              <label for="finTo">To wallet</label>
-              <select id="finTo">
+              <span class="label" id="finToLabel">To wallet</span>
+              <button type="button" class="picker-btn" id="finToBtn" aria-haspopup="true" aria-expanded="false" aria-controls="finToPanel" aria-labelledby="finToLabel finToBtnText">
+                <span id="finToBtnText">GCash</span>
+                <svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg>
+              </button>
+              <select id="finTo" class="visually-hidden" tabindex="-1" aria-hidden="true">
                 <option value="Cash">Cash</option>
                 <option value="GCash" selected>GCash</option>
                 <option value="Maya">Maya</option>
@@ -350,6 +358,12 @@
                 <option value="Bank Transfer">Bank Transfer</option>
                 <option value="Other">Other</option>
               </select>
+            </div>
+            <div class="field form-span cat-panel" id="finFromPanel" hidden>
+              <div class="cat-grid" id="finFromGrid" role="listbox" aria-labelledby="finFromLabel"></div>
+            </div>
+            <div class="field form-span cat-panel" id="finToPanel" hidden>
+              <div class="cat-grid" id="finToGrid" role="listbox" aria-labelledby="finToLabel"></div>
             </div>
             <div class="field form-span">
               <label for="finFee">Transfer fee (₱) <span class="muted-sm">(optional)</span></label>
@@ -366,8 +380,13 @@
           </button>
         </div>
         <div class="field" id="finPayWrap">
-          <label for="finPay" id="finPayLabel">Mode of payment</label>
-          <select id="finPay">
+          <span class="label" id="finPayLabel">Mode of payment</span>
+          <button type="button" class="picker-btn" id="finPayBtn" aria-haspopup="true" aria-expanded="false" aria-controls="finPayPanel" aria-labelledby="finPayLabel finPayBtnText">
+            <span id="finPayBtnText">Cash</span>
+            <svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg>
+          </button>
+          <!-- the select stays as the value store; the picker above is the UI -->
+          <select id="finPay" class="visually-hidden" tabindex="-1" aria-hidden="true">
             <option value="Cash">Cash</option>
             <option value="GCash">GCash</option>
             <option value="Maya">Maya</option>
@@ -384,6 +403,9 @@
             <input id="finCategory" type="text" maxlength="40" autocomplete="off" placeholder="Type a category" enterkeyhint="done">
             <button type="button" class="btn btn-sm" id="finCatCustomOk">Use</button>
           </div>
+        </div>
+        <div class="field form-span cat-panel" id="finPayPanel" hidden>
+          <div class="cat-grid" id="finPayGrid" role="listbox" aria-labelledby="finPayLabel"></div>
         </div>
         <div class="field">
           <label for="finDate">Date</label>

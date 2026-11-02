@@ -304,6 +304,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; cursor: po
 .cat-chip .cat-name { -webkit-hyphens: auto; hyphens: auto; overflow-wrap: break-word; text-wrap: balance; max-width: 100%; }
 .cat-chip[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .cat-chip-custom { border-style: dashed; color: var(--muted); }
+.pay-chip .w-avatar { width: 28px; height: 28px; border-radius: 9px; font-size: .7rem; }
 .cat-custom { display: flex; gap: .5rem; margin-top: .5rem; align-items: center; }
 .cat-custom input { flex: 1 1 auto; min-width: 0; }
 

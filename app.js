@@ -619,9 +619,62 @@ function toggleFinanceType() {
   var other = CAT_PRESETS[isIncome ? 'expense' : 'income'];
   var mine = CAT_PRESETS[isIncome ? 'income' : 'expense'];
   if (cur && !catIn(mine, cur) && catIn(other, cur)) $('#finCategory').value = '';
-  if (isTransfer) openCatPanel(false);
-  else if (!$('#finCatPanel').hidden) renderCatPicker();
+  if (isTransfer) { openCatPanel(false); openPayPanel(false); }
+  else {
+    openWalletPanel('finFrom', false); openWalletPanel('finTo', false);
+    if (!$('#finCatPanel').hidden) renderCatPicker();
+  }
   updateCatBtn();
+  updatePayBtn();
+}
+
+/* ---------- wallet pickers (on-screen tiles instead of native selects) ----------
+   Used for Mode of payment, and From / To on transfers. Each hidden <select>
+   stays the value store, so saving and editing read/write it as before. */
+var WALLET_PICKERS = ['finPay', 'finFrom', 'finTo'];
+function updateWalletBtn(id) {
+  $('#' + id + 'BtnText').textContent = $('#' + id).value || 'Cash';
+}
+function updatePayBtn() { WALLET_PICKERS.forEach(updateWalletBtn); }
+function renderWalletPicker(id) {
+  var cur = $('#' + id).value;
+  $('#' + id + 'Grid').innerHTML = PAY_METHODS.map(function (w) {
+    var st = WALLET_STYLE[w] || [w.charAt(0), '#64748b'];
+    return '<button type="button" class="cat-chip pay-chip" role="option" aria-selected="' + (w === cur) + '" data-wallet="' + esc(w) + '">' +
+      '<span class="w-avatar" style="--wc:' + st[1] + '" aria-hidden="true">' + esc(st[0]) + '</span><span class="cat-name">' + esc(w) + '</span></button>';
+  }).join('');
+}
+function openWalletPanel(id, open) {
+  var panel = $('#' + id + 'Panel'), btn = $('#' + id + 'Btn');
+  if (!open) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); return; }
+  closeAllPickers();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  renderWalletPicker(id);
+  panel.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  try { panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { panel.scrollIntoView(false); }
+}
+function openPayPanel(open) { if (!open) WALLET_PICKERS.forEach(function (id) { openWalletPanel(id, false); }); else openWalletPanel('finPay', true); }
+function closeAllPickers() {
+  openCatPanel(false);
+  WALLET_PICKERS.forEach(function (id) { openWalletPanel(id, false); });
+}
+function initPayPicker() {
+  WALLET_PICKERS.forEach(function (id) {
+    $('#' + id + 'Btn').addEventListener('click', function () { openWalletPanel(id, $('#' + id + 'Panel').hidden); });
+    $('#' + id + 'Grid').addEventListener('click', function (e) {
+      var chip = e.target.closest ? e.target.closest('[data-wallet]') : null;
+      if (!chip) return;
+      var v = chip.getAttribute('data-wallet');
+      // Transfers: picking the wallet already on the other side swaps them.
+      var other = id === 'finFrom' ? 'finTo' : id === 'finTo' ? 'finFrom' : null;
+      if (other && $('#' + other).value === v) $('#' + other).value = $('#' + id).value;
+      $('#' + id).value = v;
+      updatePayBtn();
+      openWalletPanel(id, false);
+      try { $('#' + id + 'Btn').focus({ preventScroll: true }); } catch (err) {}
+    });
+  });
 }
 
 /* ---------- category picker (on-screen chips instead of keyboard suggestions) ---------- */
@@ -686,6 +739,7 @@ function openCatPanel(open) {
     btn.setAttribute('aria-expanded', 'false');
     return;
   }
+  openPayPanel(false); // one picker at a time
   // Drop the keyboard (e.g. still up from the amount field) so the chips are on screen.
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   renderCatPicker();
@@ -731,7 +785,7 @@ function resetFinanceForm() {
   editingFinanceId = null;
   $('#financeForm').reset();
   $('#finDate').value = todayStr(); $('#finType').value = 'expense';
-  $('#finPay').value = 'Cash'; openCatPanel(false); toggleFinanceType();
+  $('#finPay').value = 'Cash'; openCatPanel(false); openPayPanel(false); toggleFinanceType();
   $('#financeFormTitle').textContent = 'Add transaction';
   $('#financeSubmit').textContent = 'Add';
   $('#financeDelete').hidden = true;
@@ -752,6 +806,7 @@ function closeFinanceDialog() {
 function initFinance() {
   $('#finDate').value = todayStr();
   initCatPicker();
+  initPayPicker();
   toggleFinanceType();
   $('#openFinanceModal').addEventListener('click', function () {
     resetFinanceForm(); openFinanceDialog();
