@@ -114,6 +114,10 @@
             <p class="split-value neg" id="finExpense">–</p>
           </div>
         </div>
+        <button type="button" class="btn btn-secondary btn-sm insights-btn" id="openInsights" aria-haspopup="dialog">
+          <span>Budgets &amp; spending</span><span class="ins-flag" id="insightsFlag" hidden></span>
+          <svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg>
+        </button>
       </article>
       <article class="card">
         <div class="card-head">
@@ -254,23 +258,27 @@
         </div>
       </form>
     </dialog>
-    <div class="grid cards-2 align-start">
-      <article class="card budget-card">
+    <dialog id="insightsDialog" class="insights-dialog" aria-labelledby="insightsTitle">
+      <div class="dialog-head">
+        <h3 id="insightsTitle">Budgets &amp; spending</h3>
+        <button type="button" id="insightsClose" class="btn btn-ghost btn-icon" aria-label="Close dialog"><svg class="ico" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="ins-sec budget-card">
         <div class="card-head">
-          <h3>Budgets <span class="muted-sm" id="budgetMonth"></span></h3>
+          <h4 id="budgetHead">Budgets <span class="muted-sm" id="budgetMonth"></span></h4>
           <span class="card-head-value" id="budgetTotal"></span>
         </div>
         <ul id="budgetList" class="budgets"></ul>
         <p id="budgetEmpty" class="empty">Set a monthly limit for categories like Groceries or Dining Out to see how much is left.</p>
         <button type="button" class="btn btn-secondary btn-sm budget-edit" id="budgetEdit">Set budgets</button>
-      </article>
-      <article class="card">
+      </div>
+      <div class="ins-sec">
         <div class="card-head">
-          <h3>Spending by category <span class="muted-sm" id="spendMonth"></span></h3>
+          <h4 id="spendHead">Spending by category <span class="muted-sm" id="spendMonth"></span></h4>
         </div>
         <div id="chartSpendCat" role="img" aria-label="Bar chart of spending by category"></div>
-      </article>
-    </div>
+      </div>
+    </dialog>
     <dialog id="budgetDialog" aria-labelledby="budgetTitle">
       <div class="dialog-head">
         <h3 id="budgetTitle">Monthly budgets</h3>

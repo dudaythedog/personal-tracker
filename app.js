@@ -211,7 +211,7 @@ function showMsg(text, isErr, withUndo, extraClass) {
   if (!withUndo) undoSnap = null; // the Undo button is gone, so drop its snapshot
   // A modal <dialog> sits in the top layer above everything; show the toast inside it
   // so messages like "Pick a category." aren't hidden behind the sheet.
-  var host = document.querySelector('dialog[open]') || document.body;
+  var host = topDialog() || document.body;
   if (el.parentNode !== host) host.appendChild(el);
   el.innerHTML = '<span class="toast-text"></span>' + (withUndo ? '<button type="button" class="toast-undo" id="toastUndo">Undo</button>' : '');
   el.firstChild.textContent = text;
@@ -541,6 +541,13 @@ function renderBudgets(ym, spent) {
   var head = $('#budgetTotal');
   head.textContent = rows.length ? (totSpent <= totLimit ? money(totLimit - totSpent) + ' left' : money(totSpent - totLimit) + ' over') : '';
   head.classList.toggle('neg', totSpent > totLimit);
+  // The sheet is closed most of the time, so flag trouble on the button that opens it.
+  var over = rows.filter(function (r) { return r.pct > 1; }).length;
+  var near = rows.filter(function (r) { return r.pct >= 0.8 && r.pct <= 1; }).length;
+  var flag = $('#insightsFlag');
+  flag.hidden = !over && !near;
+  flag.textContent = over ? over + ' over' : near ? near + ' near limit' : '';
+  flag.classList.toggle('is-warn', !over && near > 0);
   $('#budgetList').innerHTML = rows.map(function (r) {
     var cls = r.pct > 1 ? 'is-over' : r.pct >= 0.8 ? 'is-warn' : '';
     var left = r.limit - r.spent;
@@ -594,7 +601,14 @@ function openBudgetDialog() {
   try { $('#budgetClose').focus({ preventScroll: true }); } catch (e) {}
 }
 function closeBudgetDialog() { closeDialog($('#budgetDialog')); }
+function closeInsights() { closeDialog($('#insightsDialog')); }
 function initBudgets() {
+  $('#openInsights').addEventListener('click', function () {
+    openDialog($('#insightsDialog'));
+    try { $('#insightsClose').focus({ preventScroll: true }); } catch (e) {}
+  });
+  $('#insightsClose').addEventListener('click', closeInsights);
+  $('#insightsDialog').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeInsights(); });
   $('#budgetEdit').addEventListener('click', openBudgetDialog);
   $('#budgetClose').addEventListener('click', closeBudgetDialog);
   $('#budgetCancel').addEventListener('click', closeBudgetDialog);
@@ -832,11 +846,23 @@ function openDialog(d) {
   if (typeof d.showModal === 'function') { if (!d.open) d.showModal(); }
   else d.setAttribute('open', '');
 }
+// Dialogs can stack (Budgets sheet → budget editor). The editor comes later in the page,
+// so the last open dialog is the one on top.
+function topDialog() {
+  var open = document.querySelectorAll('dialog[open]');
+  return open.length ? open[open.length - 1] : null;
+}
+function rehomeToast() {
+  var t = $('#toast'); // the toast may have moved into a dialog that just closed
+  var host = topDialog() || document.body;
+  if (t && t.parentNode !== host) host.appendChild(t);
+}
 function closeDialog(d) {
   if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
-  var t = $('#toast'); // the toast may have moved into this dialog
-  if (t && t.parentNode !== document.body) document.body.appendChild(t);
+  rehomeToast();
 }
+// Esc closes a dialog without going through closeDialog; 'close' doesn't bubble, so capture it.
+document.addEventListener('close', function (e) { if (e.target.tagName === 'DIALOG') rehomeToast(); }, true);
 function openFinanceDialog() {
   openDialog(financeDialog());
   // New entry: jump straight to the amount. Editing: don't pop the phone keyboard over the details.

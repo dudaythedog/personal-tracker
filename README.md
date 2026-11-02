@@ -2,7 +2,7 @@
 
 A lightweight, private finance tracker (₱) that runs as a **static site** — no frameworks, no build step, no backend, no CDNs. All data stays in your browser (`localStorage`). Works offline and loads instantly.
 
-One page: balance, wallets, budgets, spending by category and transactions.
+One page: balance, wallets and transactions. Budgets and spending by category open from the **Budgets & spending** button on the Balance card, which shows a red or amber tag when a budget is over or nearly used up.
 
 ## Features
 

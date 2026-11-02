@@ -380,6 +380,14 @@ dialog[open] { animation: dialog-in .2s ease-out; }
 dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .9rem; }
 .dialog-head h3 { margin: 0; font-size: 1.2rem; }
+/* Budgets & spending sheet (opened from the Balance card) */
+.insights-btn { width: 100%; margin-top: .75rem; justify-content: space-between; gap: .5rem; }
+.insights-btn > span:first-child { flex: 1 1 auto; text-align: left; }
+.ins-flag { font-size: .75rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; background: color-mix(in srgb, var(--neg) 13%, transparent); color: var(--neg); white-space: nowrap; }
+.ins-flag.is-warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.insights-dialog { padding-bottom: 1.2rem; }
+.ins-sec + .ins-sec { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.ins-sec h4 { margin: 0; font-size: 1rem; font-weight: 650; letter-spacing: -.01em; }
 .finance-form, .finance-form .nested { grid-template-columns: 1fr 1fr; }
 .dialog-actions {
   position: sticky; bottom: 0; z-index: 1;
@@ -623,6 +631,8 @@ input.switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2p
   .dialog-actions .btn { flex: 1 1 0; }
   .dialog-actions .spacer { display: none; }
   .dialog-actions #financeDelete { flex: 0 0 auto; padding: 0 .85rem; }
+  .insights-dialog { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .insights-btn { margin-top: .6rem; }
 
   /* backup reminder + budgets on ~384px phones */
   .backup-nudge { gap: .45rem .65rem; padding: .7rem .8rem; }
