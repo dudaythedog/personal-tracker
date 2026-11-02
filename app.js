@@ -608,17 +608,122 @@ function toggleFinanceType() {
   $('#finTransferWrap').hidden = !isTransfer;
   $('#finCatWrap').style.display = isTransfer ? 'none' : '';
   $('#finPayWrap').style.display = isTransfer ? 'none' : '';
-  // a hidden required field blocks submit ("not focusable" error), so un-require it in transfer mode
-  $('#finCategory').required = !isTransfer;
   $('#finPayLabel').textContent = isIncome ? 'Received via' : 'Mode of payment';
   $all('.type-seg .seg-btn').forEach(function (b) {
     var on = b.dataset.fintype === t;
     b.classList.toggle('is-active', on);
     b.setAttribute('aria-checked', on ? 'true' : 'false');
   });
-  if (!isTransfer) {
-    $('#finCategory').setAttribute('list', isIncome ? 'finCatIncome' : 'finCatList');
+  // A preset from the other type (e.g. "Salary" after switching to Expense) no longer fits.
+  var cur = $('#finCategory').value.trim();
+  var other = CAT_PRESETS[isIncome ? 'expense' : 'income'];
+  var mine = CAT_PRESETS[isIncome ? 'income' : 'expense'];
+  if (cur && !catIn(mine, cur) && catIn(other, cur)) $('#finCategory').value = '';
+  if (isTransfer) openCatPanel(false);
+  else if (!$('#finCatPanel').hidden) renderCatPicker();
+  updateCatBtn();
+}
+
+/* ---------- category picker (on-screen chips instead of keyboard suggestions) ---------- */
+var CAT_PRESETS = {
+  expense: [['Groceries', '🛒'], ['Dining Out', '🍽️'], ['Transportation', '🚌'], ['Utilities', '💡'],
+    ['Subscriptions', '🔁'], ['Entertainment', '🎬'], ['Housing', '🏠'], ['Household', '🧺'],
+    ['Health & Wellness', '💊'], ['Education', '📚'], ['Taxes & Contributions', '🧾'], ['Savings', '🐷'],
+    ['Investments', '📈'], ['Other', '📦']],
+  income: [['Salary', '💼'], ['Bonus', '🎁'], ['Freelance', '💻'], ['Business Income', '🏪'],
+    ['Allowance', '💵'], ['Gift', '🎀'], ['Interest', '🏦'], ['Other', '📦']]
+};
+// Soft hyphens (­) so long names break cleanly inside a narrow chip on any browser.
+var CAT_SHY = {
+  'Transportation': 'Transpor­tation', 'Entertainment': 'Entertain­ment',
+  'Subscriptions': 'Subscrip­tions', 'Taxes & Contributions': 'Taxes & Contri­butions'
+};
+function catIn(list, name) {
+  var n = String(name).toLowerCase();
+  return list.some(function (c) { return c[0].toLowerCase() === n; });
+}
+// Presets for the current type + custom categories you've already used (newest first).
+function catOptions() {
+  var type = $('#finType').value === 'income' ? 'income' : 'expense';
+  var opts = CAT_PRESETS[type].slice();
+  var seen = {};
+  state.finance.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (f) {
+    if (f.type !== type || !f.category) return;
+    var key = f.category.toLowerCase();
+    if (seen[key] || catIn(opts, f.category)) return;
+    seen[key] = true;
+    if (Object.keys(seen).length <= 6) opts.splice(opts.length - 1, 0, [f.category, '🏷️']); // before "Other"
+  });
+  // Keep an unsaved custom value (typed just now, or being edited) visible too.
+  var cur = $('#finCategory').value.trim();
+  if (cur && !catIn(opts, cur)) opts.splice(opts.length - 1, 0, [cur, '🏷️']);
+  return opts;
+}
+function catIcon(name) {
+  var all = CAT_PRESETS.expense.concat(CAT_PRESETS.income);
+  for (var i = 0; i < all.length; i++) if (all[i][0].toLowerCase() === String(name).toLowerCase()) return all[i][1];
+  return '🏷️';
+}
+function renderCatPicker() {
+  var cur = $('#finCategory').value.trim().toLowerCase();
+  $('#finCatGrid').innerHTML = catOptions().map(function (c) {
+    var sel = c[0].toLowerCase() === cur;
+    return '<button type="button" class="cat-chip" role="option" aria-selected="' + sel + '" data-cat="' + esc(c[0]) + '">' +
+      '<span class="cat-emo" aria-hidden="true">' + c[1] + '</span><span class="cat-name">' + esc(CAT_SHY[c[0]] || c[0]) + '</span></button>';
+  }).join('') +
+    '<button type="button" class="cat-chip cat-chip-custom" data-cat-custom="1"><span class="cat-emo" aria-hidden="true">✏️</span><span class="cat-name">Custom…</span></button>';
+}
+function updateCatBtn() {
+  var v = $('#finCategory').value.trim();
+  var t = $('#finCatBtnText');
+  t.textContent = v ? catIcon(v) + '  ' + v : 'Choose…';
+  t.classList.toggle('picker-placeholder', !v);
+}
+function openCatPanel(open) {
+  var panel = $('#finCatPanel'), btn = $('#finCatBtn');
+  if (!open) {
+    panel.hidden = true; $('#finCatCustom').hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    return;
   }
+  // Drop the keyboard (e.g. still up from the amount field) so the chips are on screen.
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  renderCatPicker();
+  panel.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  try { panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { panel.scrollIntoView(false); }
+}
+function setCategory(v) {
+  $('#finCategory').value = String(v || '').trim().slice(0, 40);
+  updateCatBtn();
+  openCatPanel(false);
+  try { $('#finCatBtn').focus({ preventScroll: true }); } catch (e) {}
+}
+function initCatPicker() {
+  $('#finCatBtn').addEventListener('click', function () { openCatPanel($('#finCatPanel').hidden); });
+  $('#finCatGrid').addEventListener('click', function (e) {
+    var chip = e.target.closest ? e.target.closest('.cat-chip') : null;
+    if (!chip) return;
+    if (chip.hasAttribute('data-cat-custom')) {
+      var box = $('#finCatCustom'), input = $('#finCategory');
+      box.hidden = false;
+      if (catIn(CAT_PRESETS.expense.concat(CAT_PRESETS.income), input.value)) input.value = '';
+      input.focus();
+      return;
+    }
+    setCategory(chip.getAttribute('data-cat'));
+  });
+  function useCustom() {
+    var v = $('#finCategory').value.trim();
+    if (!v) { $('#finCategory').focus(); return; }
+    setCategory(v);
+  }
+  $('#finCatCustomOk').addEventListener('click', useCustom);
+  // Enter in the custom box picks the category instead of submitting the whole form.
+  $('#finCategory').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); useCustom(); }
+  });
+  $('#finCategory').addEventListener('input', updateCatBtn);
 }
 /* Finance modal: the add/edit form lives in a native <dialog>. */
 function financeDialog() { return $('#financeDialog'); }
@@ -626,7 +731,7 @@ function resetFinanceForm() {
   editingFinanceId = null;
   $('#financeForm').reset();
   $('#finDate').value = todayStr(); $('#finType').value = 'expense';
-  $('#finPay').value = 'Cash'; toggleFinanceType();
+  $('#finPay').value = 'Cash'; openCatPanel(false); toggleFinanceType();
   $('#financeFormTitle').textContent = 'Add transaction';
   $('#financeSubmit').textContent = 'Add';
   $('#financeDelete').hidden = true;
@@ -646,6 +751,7 @@ function closeFinanceDialog() {
 }
 function initFinance() {
   $('#finDate').value = todayStr();
+  initCatPicker();
   toggleFinanceType();
   $('#openFinanceModal').addEventListener('click', function () {
     resetFinanceForm(); openFinanceDialog();
@@ -672,7 +778,9 @@ function initFinance() {
   $all('.type-seg .seg-btn').forEach(function (b) {
     b.addEventListener('click', function () { $('#finType').value = b.dataset.fintype; toggleFinanceType(); });
   });
-  financeDialog().addEventListener('close', resetFinanceForm); // ESC key
+  // ESC key. The 'close' event fires asynchronously, so skip the reset if the sheet
+  // was already reopened (e.g. a quick tap on another transaction).
+  financeDialog().addEventListener('close', function () { if (!financeDialog().open) resetFinanceForm(); });
   $('#finType').addEventListener('change', toggleFinanceType);
   var amtInput = $('#finAmount');
   amtInput.addEventListener('input', function () { formatAmountLive(amtInput); });
@@ -734,12 +842,13 @@ function initFinance() {
     }
     var amount = parseAmount($('#finAmount').value);
     if (!(amount > 0)) { alert('Please enter an amount greater than 0 (e.g. 10,000.00).'); $('#finAmount').focus(); return; }
+    if (!$('#finCategory').value.trim()) { showMsg('Pick a category.', true); openCatPanel(true); return; }
     var isIncome = kind === 'income';
     var obj = {
       id: editingFinanceId || uid(),
       type: isIncome ? 'income' : 'expense',
       amount: Math.round(amount * 100) / 100,
-      category: $('#finCategory').value.trim() || 'Other',
+      category: $('#finCategory').value.trim().slice(0, 40),
       date: dateVal,
       description: $('#finDesc').value.trim(),
       payMethod: $('#finPay').value,

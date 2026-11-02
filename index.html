@@ -358,23 +358,12 @@
           </div>
         </div>
         <div class="field" id="finCatWrap">
-          <label for="finCategory">Category</label>
-          <input id="finCategory" type="text" list="finCatList" required maxlength="40" autocomplete="off">
-          <datalist id="finCatList">
-            <option value="Groceries"></option><option value="Dining Out"></option>
-            <option value="Entertainment"></option><option value="Utilities"></option>
-            <option value="Subscriptions"></option><option value="Transportation"></option>
-            <option value="Housing"></option><option value="Household"></option>
-            <option value="Health & Wellness"></option><option value="Education"></option>
-            <option value="Taxes & Contributions"></option><option value="Savings"></option>
-            <option value="Investments"></option><option value="Other"></option>
-          </datalist>
-          <datalist id="finCatIncome">
-            <option value="Salary"></option><option value="Bonus"></option>
-            <option value="Freelance"></option><option value="Business Income"></option>
-            <option value="Allowance"></option><option value="Gift"></option>
-            <option value="Interest"></option><option value="Other"></option>
-          </datalist>
+          <span class="label" id="finCatLabel">Category</span>
+          <!-- on-screen picker instead of keyboard suggestions -->
+          <button type="button" class="picker-btn" id="finCatBtn" aria-haspopup="true" aria-expanded="false" aria-controls="finCatPanel" aria-labelledby="finCatLabel finCatBtnText">
+            <span id="finCatBtnText" class="picker-placeholder">Choose…</span>
+            <svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg>
+          </button>
         </div>
         <div class="field" id="finPayWrap">
           <label for="finPay" id="finPayLabel">Mode of payment</label>
@@ -387,6 +376,14 @@
             <option value="Bank Transfer">Bank Transfer</option>
             <option value="Other">Other</option>
           </select>
+        </div>
+        <div class="field form-span cat-panel" id="finCatPanel" hidden>
+          <div class="cat-grid" id="finCatGrid" role="listbox" aria-labelledby="finCatLabel"></div>
+          <div class="cat-custom" id="finCatCustom" hidden>
+            <label for="finCategory" class="visually-hidden">Custom category</label>
+            <input id="finCategory" type="text" maxlength="40" autocomplete="off" placeholder="Type a category" enterkeyhint="done">
+            <button type="button" class="btn btn-sm" id="finCatCustomOk">Use</button>
+          </div>
         </div>
         <div class="field">
           <label for="finDate">Date</label>
