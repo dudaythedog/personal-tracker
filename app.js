@@ -1044,8 +1044,8 @@ function paintWallets(box, emptyEl, totalEl) {
     var st = WALLET_STYLE[r.wallet] || [r.wallet.charAt(0).toUpperCase(), '#64748b'];
     var cls = r.balance < 0 ? 'neg' : (r.balance > 0 ? 'pos' : 'muted');
     return '<div class="wallet"><span class="w-avatar" style="--wc:' + st[1] + '" aria-hidden="true">' + esc(st[0]) + '</span>' +
-      '<span class="w-name">' + esc(r.wallet) + '</span>' +
-      '<span class="w-amt ' + cls + '">' + esc(money(r.balance)) + '</span></div>';
+      '<span class="w-text"><span class="w-name">' + esc(r.wallet) + '</span>' +
+      '<span class="w-amt ' + cls + '">' + esc(money(r.balance)) + '</span></span></div>';
   }).join('');
 }
 

@@ -255,15 +255,6 @@
   <section id="view-finance" class="view" aria-labelledby="h-finance" hidden>
     <div class="page-head page-head-row">
       <h2 id="h-finance">Finance</h2>
-      <button type="button" class="btn fab" id="openFinanceModal"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> <span class="fab-label">Add transaction</span></button>
-    </div>
-    <div class="toolbar">
-      <div class="seg" role="group" aria-label="Finance date filter">
-        <button type="button" data-range="month" class="seg-btn is-active">Month</button>
-        <button type="button" data-range="week" class="seg-btn">Week</button>
-        <button type="button" data-range="today" class="seg-btn">Today</button>
-        <button type="button" data-range="all" class="seg-btn">All</button>
-      </div>
       <div class="month-nav" id="finMonthNav">
         <button type="button" class="btn btn-ghost btn-icon" id="finPrevMonth" aria-label="Previous month"><svg class="ico" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
         <label class="month-label">
@@ -272,6 +263,15 @@
           <input id="finMonthPicker" type="month" aria-label="Choose month">
         </label>
         <button type="button" class="btn btn-ghost btn-icon" id="finNextMonth" aria-label="Next month"><svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+      </div>
+      <button type="button" class="btn fab" id="openFinanceModal" aria-label="Add transaction"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> <span class="fab-label">Add transaction</span></button>
+    </div>
+    <div class="toolbar fin-toolbar">
+      <div class="seg" role="group" aria-label="Finance date filter">
+        <button type="button" data-range="month" class="seg-btn is-active">Month</button>
+        <button type="button" data-range="week" class="seg-btn">Week</button>
+        <button type="button" data-range="today" class="seg-btn">Today</button>
+        <button type="button" data-range="all" class="seg-btn">All</button>
       </div>
     </div>
     <div class="grid fin-top">
