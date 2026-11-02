@@ -325,10 +325,6 @@
             <input id="finAmount" type="text" required inputmode="decimal" autocomplete="off" placeholder="0.00" class="amount-input">
           </div>
         </div>
-        <div class="field form-span">
-          <label for="finDate">Date</label>
-          <input id="finDate" type="date" required>
-        </div>
         <div class="field form-span" id="finTransferWrap" hidden>
           <div class="form-grid cols-2 nested">
             <div class="field">
@@ -392,7 +388,11 @@
             <option value="Other">Other</option>
           </select>
         </div>
-        <div class="field form-span">
+        <div class="field">
+          <label for="finDate">Date</label>
+          <input id="finDate" type="date" required>
+        </div>
+        <div class="field">
           <label for="finDesc">Description <span class="muted-sm">(optional)</span></label>
           <input id="finDesc" type="text" maxlength="140" autocomplete="off">
         </div>
