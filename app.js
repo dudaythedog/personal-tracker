@@ -212,11 +212,12 @@ function applyTheme(mode) {
   var dark = mode === 'dark' || (mode === 'auto' && sysDark);
   var name = mode === 'auto' ? 'Auto' : (mode === 'dark' ? 'Dark' : 'Light');
   var btn = $('#themeToggle');
-  btn.innerHTML = (dark ? '🌙' : '☀️') + ' <span class="btn-text">' + name + '</span>';
+  var icon = mode === 'auto' ? 'i-auto' : (dark ? 'i-moon' : 'i-sun');
+  btn.innerHTML = '<svg class="ico" aria-hidden="true"><use href="#' + icon + '"/></svg> <span class="btn-text">' + name + '</span>';
   btn.setAttribute('aria-label', 'Theme: ' + name + ' (tap to change)');
   // Status bar / browser chrome follows the chosen theme, not just the system one.
   $all('meta[name="theme-color"]').forEach(function (m) {
-    m.setAttribute('content', dark ? '#16191e' : '#ffffff');
+    m.setAttribute('content', dark ? '#12151b' : '#ffffff');
   });
 }
 function initTheme() {
@@ -282,14 +283,19 @@ function renderHabits() {
   var list = $('#habitList');
   $('#habitEmpty').style.display = state.habits.length ? 'none' : '';
   var doneCount = state.habits.filter(function (h) { return h.checks[t]; }).length;
-  $('#habitProgress').textContent = state.habits.length ? '· ' + doneCount + '/' + state.habits.length + ' done' : '';
+  $('#habitProgress').textContent = state.habits.length ? doneCount + ' of ' + state.habits.length + ' done' : '';
+  var week = last7();
   list.innerHTML = state.habits.map(function (h) {
     var done = !!h.checks[t];
     var streak = habitStreak(h);
+    var dots = week.map(function (d) {
+      return '<i class="' + (h.checks[d] ? 'on' : '') + (d === t ? ' today' : '') + '"></i>';
+    }).join('');
     return '<li class="habit-row' + (done ? ' is-done' : '') + '">' +
       '<label class="check-wrap"><input type="checkbox" data-check="' + esc(h.id) + '" ' + (done ? 'checked' : '') + ' aria-label="Mark ' + esc(h.name) + ' done today"></label>' +
-      '<div class="grow"><strong class="' + (done ? 'done-text' : '') + '">' + esc(h.name) + '</strong>' +
-      '<div class="streak' + (streak >= 3 ? ' hot' : '') + '" title="Consecutive days">' + (streak ? '🔥 ' + streak + '-day streak' : 'No streak yet') + '</div></div>' +
+      '<div class="grow"><span class="habit-name' + (done ? ' done-text' : '') + '">' + esc(h.name) + '</span>' +
+      '<div class="habit-sub"><span class="week-dots" title="Last 7 days" aria-hidden="true">' + dots + '</span>' +
+      '<span class="streak' + (streak >= 3 ? ' hot' : '') + '" title="Consecutive days">' + (streak ? '🔥 ' + streak + '-day streak' : 'No streak yet') + '</span></div></div>' +
       iconBtns('habit', h.id, h.name) + '</li>';
   }).join('');
 }
@@ -537,12 +543,12 @@ function renderFinance() {
   var mLabel = monthLabel(viewMonth);
   ['finIncomeMonth', 'finExpenseMonth'].forEach(function (id) {
     var el = document.getElementById(id);
-    if (el) el.textContent = '(' + mLabel + ')';
+    if (el) el.textContent = '· ' + MONTHS[(+viewMonth.slice(5, 7)) - 1];
   });
   var bm = document.getElementById('finBalanceMonth');
-  if (bm) bm.textContent = '(end of ' + mLabel + ')';
+  if (bm) bm.textContent = '· end of ' + mLabel;
   var bs = document.getElementById('finBalanceSub');
-  if (bs) bs.textContent = 'carried over ' + money(bt.carried) + ' · ' + mLabel + ' net ' + money(mt.balance);
+  if (bs) bs.textContent = 'Carried over ' + money(bt.carried) + ' · ' + MONTHS[(+viewMonth.slice(5, 7)) - 1] + ' net ' + (mt.balance >= 0 ? '+' : '') + money(mt.balance);
   // Keep the month navigator in sync; only relevant in month mode.
   var picker = $('#finMonthPicker');
   if (picker && picker.value !== viewMonth) picker.value = viewMonth;
@@ -558,25 +564,41 @@ function renderFinance() {
       .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
   }
   $('#financeEmpty').style.display = items.length ? 'none' : '';
-  $('#financeList').innerHTML = items.map(function (f) {
-    if (f.type === 'transfer') {
-      var tmeta = esc(niceDate(f.date)) + ' · ' + esc(f.fromWallet || '?') + ' → ' + esc(f.toWallet || '?') +
-        ((f.fee || 0) > 0 ? ' · fee ' + esc(money(f.fee)) : '') +
-        (f.description ? ' · ' + esc(f.description) : '');
-      return '<li class="entry"><span class="fin-ico transfer" aria-hidden="true">⇄</span>' +
-        '<div class="grow"><div class="entry-title"><strong>Transfer</strong><span class="amt">' + esc(money(f.amount)) + '</span></div>' +
-        '<div class="meta">' + tmeta + '</div></div>' +
-        iconBtns('fin', f.id, 'transfer of ' + money(f.amount)) + '</li>';
-    }
-    var desc = f.description || f.note || ''; // f.note: very old saves
-    var inc = f.type === 'income';
-    var meta = esc(niceDate(f.date)) + (f.payMethod ? ' · ' + esc(f.payMethod) : '') + (desc ? ' · ' + esc(desc) : '');
-    return '<li class="entry"><span class="fin-ico ' + (inc ? 'income' : 'expense') + '" aria-hidden="true">' + (inc ? '↓' : '↑') + '</span>' +
-      '<div class="grow"><div class="entry-title"><strong>' + esc(f.category) + '</strong>' +
-      '<span class="amt ' + (inc ? 'pos' : 'neg') + '">' + (inc ? '+' : '−') + esc(money(f.amount)) + '</span></div>' +
-      '<div class="meta">' + meta + '</div></div>' +
-      iconBtns('fin', f.id, f.category + ' ' + money(f.amount)) + '</li>';
+  // Group by day (items are already newest first), like a bank statement.
+  var groups = [];
+  items.forEach(function (f) {
+    var g = groups[groups.length - 1];
+    if (!g || g.date !== f.date) { g = { date: f.date, items: [] }; groups.push(g); }
+    g.items.push(f);
+  });
+  $('#financeList').innerHTML = groups.map(function (g) {
+    var net = financeTotals(g.items).balance;
+    return '<li class="tx-day"><div class="tx-day-head"><span>' + esc(niceDate(g.date)) + '</span>' +
+      '<span class="amt">' + (net > 0 ? '+' : '') + esc(money(net)) + '</span></div>' +
+      '<ul class="tx-list">' + g.items.map(txRow).join('') + '</ul></li>';
   }).join('');
+}
+// One transaction row: the whole row is a button that opens the edit sheet.
+function txRow(f) {
+  var desc = f.description || f.note || ''; // f.note: very old saves
+  var title, meta, ico, amt;
+  if (f.type === 'transfer') {
+    title = 'Transfer';
+    meta = esc(f.fromWallet || '?') + ' → ' + esc(f.toWallet || '?') +
+      ((f.fee || 0) > 0 ? ' · fee ' + esc(money(f.fee)) : '') + (desc ? ' · ' + esc(desc) : '');
+    ico = '<span class="fin-ico transfer" aria-hidden="true"><svg class="ico"><use href="#i-swap"/></svg></span>';
+    amt = '<span class="amt">' + esc(money(f.amount)) + '</span>';
+  } else {
+    var inc = f.type === 'income';
+    title = esc(f.category);
+    meta = [f.payMethod ? esc(f.payMethod) : '', desc ? esc(desc) : ''].filter(Boolean).join(' · ') || '—';
+    ico = '<span class="fin-ico ' + (inc ? 'income' : 'expense') + '" aria-hidden="true"><svg class="ico"><use href="#' + (inc ? 'i-in' : 'i-out') + '"/></svg></span>';
+    amt = '<span class="amt ' + (inc ? 'pos' : 'neg') + '">' + (inc ? '+' : '−') + esc(money(f.amount)) + '</span>';
+  }
+  var label = 'Edit ' + (f.type === 'transfer' ? 'transfer' : f.category) + ', ' + money(f.amount) + ', ' + niceDate(f.date);
+  return '<li><button type="button" class="tx" data-edit-fin="' + esc(f.id) + '" aria-label="' + esc(label) + '">' + ico +
+    '<span class="tx-main"><span class="tx-title">' + title + '</span><span class="tx-meta">' + meta + '</span></span>' +
+    amt + '</button></li>';
 }
 // Form fields follow the transaction type: transfer shows From/To/Fee,
 // income gets income categories, expense gets expense categories + pay method.
@@ -607,12 +629,15 @@ function resetFinanceForm() {
   $('#finPay').value = 'Cash'; toggleFinanceType();
   $('#financeFormTitle').textContent = 'Add transaction';
   $('#financeSubmit').textContent = 'Add';
+  $('#financeDelete').hidden = true;
 }
 function openFinanceDialog() {
   var d = financeDialog();
   if (typeof d.showModal === 'function') { if (!d.open) d.showModal(); }
   else d.setAttribute('open', '');
-  $('#finAmount').focus();
+  // New entry: jump straight to the amount. Editing: don't pop the phone keyboard over the details.
+  if (!editingFinanceId) $('#finAmount').focus();
+  else { try { $('#financeClose').focus({ preventScroll: true }); } catch (e) {} }
 }
 function closeFinanceDialog() {
   var d = financeDialog();
@@ -626,6 +651,14 @@ function initFinance() {
     resetFinanceForm(); openFinanceDialog();
   });
   $('#financeCancel').addEventListener('click', closeFinanceDialog);
+  $('#financeDelete').addEventListener('click', function () {
+    var id = editingFinanceId;
+    if (!id || !confirm('Delete this transaction?')) return;
+    state.finance = state.finance.filter(function (x) { return x.id !== id; });
+    closeFinanceDialog();
+    save(); renderAll();
+    showMsg('Transaction deleted.');
+  });
   $('#financeClose').addEventListener('click', closeFinanceDialog);
   financeDialog().addEventListener('click', function (e) {
     // e.target is the dialog for both backdrop clicks AND taps on its own padding,
@@ -740,6 +773,7 @@ function initFinance() {
       toggleFinanceType();
       $('#financeFormTitle').textContent = 'Edit transaction';
       $('#financeSubmit').textContent = 'Save';
+      $('#financeDelete').hidden = false;
       openFinanceDialog();
     }
     if (del) {
@@ -924,39 +958,24 @@ function habitDayPct(dateStr) {
   var done = state.habits.filter(function (h) { return h.checks[dateStr]; }).length;
   return Math.round(done / state.habits.length * 100);
 }
-// Minimal SVG vertical bar chart: labels[] + values[] (0-100).
-function svgBars(labels, values, colorClass) {
-  var W = 320, H = 130, padB = 22, max = 100;
-  var n = values.length, bw = Math.min(34, (W - 10) / n - 8);
-  var gap = (W - 10 - bw * n) / (n + 1 || 1);
-  var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="presentation">';
-  for (var i = 0; i < n; i++) {
-    var v = Math.max(0, Math.min(100, values[i]));
-    var h = (H - padB - 8) * (v / max);
-    var x = 5 + gap + i * (bw + gap);
-    var y = H - padB - h;
-    s += '<rect class="bar-bg" x="' + x.toFixed(1) + '" y="8" width="' + bw + '" height="' + (H - padB - 8) + '" rx="4"/>';
-    s += '<rect class="bar ' + (colorClass && colorClass[i] ? colorClass[i] : '') + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(2, h).toFixed(1) + '" rx="4"><title>' + esc(labels[i]) + ': ' + v + '%</title></rect>';
-    s += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + esc(labels[i]) + '</text>';
-  }
-  return s + '</svg>';
+// Weekly column chart in plain HTML (crisp text at any width): labels[] + values[] (0-100).
+function weekBars(labels, values, todayIdx) {
+  return '<div class="week-chart">' + values.map(function (raw, i) {
+    var v = Math.max(0, Math.min(100, raw));
+    return '<div class="wc-day' + (i === todayIdx ? ' is-today' : '') + '" title="' + esc(labels[i]) + ': ' + v + '%">' +
+      '<span class="wc-val">' + v + '%</span>' +
+      '<div class="wc-col"><span style="height:' + v + '%"></span></div>' +
+      '<span class="wc-lbl">' + esc(labels[i]) + '</span></div>';
+  }).join('') + '</div>';
 }
-// Horizontal bars for category totals.
-function svgHBars(rows) { // rows: [{label, value}]
-  var W = 320, rowH = 26, H = rows.length * rowH + 8;
+// Horizontal bars for category totals: label + amount on top, bar underneath.
+function hBars(rows) { // rows: [{label, value}]
   var max = Math.max.apply(null, [1].concat(rows.map(function (r) { return r.value; })));
-  var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="presentation">';
-  rows.forEach(function (r, i) {
-    // label column | bar | amount column (amount kept outside the bar so long ₱ values never overlap)
-    var labelW = 92, amtW = 78, barW = W - labelW - amtW - 8;
-    var y = 4 + i * rowH, w = barW * (r.value / max);
-    var lbl = r.label.length > 13 ? r.label.slice(0, 12) + '…' : r.label;
-    s += '<text x="0" y="' + (y + 13) + '">' + esc(lbl) + '</text>';
-    s += '<rect class="bar-bg" x="' + labelW + '" y="' + y + '" width="' + barW + '" height="16" rx="4"/>';
-    s += '<rect class="bar" x="' + labelW + '" y="' + y + '" width="' + Math.max(2, w).toFixed(1) + '" height="16" rx="4"><title>' + esc(r.label) + ': ' + money(r.value) + '</title></rect>';
-    s += '<text x="' + (W - 2) + '" y="' + (y + 13) + '" text-anchor="end">' + esc(money(r.value)) + '</text>';
-  });
-  return s + '</svg>';
+  return '<ul class="hbars">' + rows.map(function (r) {
+    var pct = Math.max(1, Math.round(r.value / max * 100));
+    return '<li><div class="hb-head"><span class="hb-label">' + esc(r.label) + '</span><span class="amt">' + esc(money(r.value)) + '</span></div>' +
+      '<div class="hb-track"><span style="width:' + pct + '%"></span></div></li>';
+  }).join('') + '</ul>';
 }
 function renderDashboard() {
   var t = todayStr();
@@ -966,7 +985,9 @@ function renderDashboard() {
   // habits
   var done = state.habits.filter(function (h) { return h.checks[t]; }).length;
   $('#dashHabits').textContent = done + '/' + state.habits.length;
-  $('#dashHabitsSub').textContent = state.habits.length ? 'completed today' : 'add habits to get started';
+  $('#dashHabitsSub').textContent = state.habits.length ? (done === state.habits.length ? 'all done today 🎉' : 'completed today') : 'add habits to get started';
+  var bar = $('#dashHabitsBar');
+  if (bar) bar.style.width = (state.habits.length ? Math.round(done / state.habits.length * 100) : 0) + '%';
   // health (today)
   var todays = state.health.filter(function (h) { return h.date === t; });
   var water = todays.reduce(function (a, h) { return a + (h.water || 0); }, 0);
@@ -988,8 +1009,7 @@ function renderDashboard() {
   var days = last7();
   var labels = days.map(function (d) { return d === t ? 'Today' : WEEKDAYS[parseD(d).getDay()]; });
   var vals = days.map(habitDayPct);
-  var cls = days.map(function (d) { return d === t ? 'today' : ''; });
-  $('#chartHabitsWeek').innerHTML = state.habits.length ? svgBars(labels, vals, cls) : '<p class="empty">Add a habit to see your week.</p>';
+  $('#chartHabitsWeek').innerHTML = state.habits.length ? weekBars(labels, vals, days.indexOf(t)) : '<p class="empty">Add a habit to see your week.</p>';
   var byCat = {};
   state.finance.filter(function (f) { return monthKey(normDateStr(f.date)) === monthKey(t); })
     .forEach(function (f) {
@@ -998,20 +1018,34 @@ function renderDashboard() {
     });
   var rows = Object.keys(byCat).map(function (k) { return { label: k, value: byCat[k] }; })
     .sort(function (a, b) { return b.value - a.value; }).slice(0, 6);
-  $('#chartSpendCat').innerHTML = rows.length ? svgHBars(rows) : '<p class="empty">No spending this month yet.</p>';
+  $('#chartSpendCat').innerHTML = rows.length ? hBars(rows) : '<p class="empty">No spending this month yet.</p>';
   renderWallets();
 }
 function renderWallets() {
-  paintWallets($('#walletBalances'), $('#walletEmpty'));
-  paintWallets($('#finWalletBalances'), $('#finWalletEmpty'));
+  paintWallets($('#walletBalances'), $('#walletEmpty'), $('#walletTotal'));
+  paintWallets($('#finWalletBalances'), $('#finWalletEmpty'), $('#finWalletTotal'));
 }
-function paintWallets(box, emptyEl) {
+var WALLET_STYLE = { // [initials, color]
+  'Cash': ['₱', '#16a34a'], 'GCash': ['G', '#2563eb'], 'Maya': ['M', '#0d9488'],
+  'Debit Card': ['DC', '#7c3aed'], 'Credit Card': ['CC', '#ea580c'], 'Bank Transfer': ['B', '#4f46e5'], 'Other': ['•', '#64748b']
+};
+function paintWallets(box, emptyEl, totalEl) {
   if (!box) return;
   var rows = walletBalances();
-  if (emptyEl) emptyEl.style.display = rows.length ? 'none' : '';
+  var hasActivity = state.finance.length > 0;
+  if (emptyEl) emptyEl.style.display = hasActivity ? 'none' : '';
+  box.style.display = hasActivity ? '' : 'none';
+  var total = rows.reduce(function (a, r) { return a + r.balance; }, 0);
+  if (totalEl) {
+    totalEl.textContent = hasActivity ? money(total) : '';
+    totalEl.classList.toggle('neg', total < 0);
+  }
   box.innerHTML = rows.map(function (r) {
-    var cls = r.balance < 0 ? 'neg' : 'pos';
-    return '<div class="wallet"><div class="w-name">' + esc(r.wallet) + '</div><div class="big ' + cls + '">' + esc(money(r.balance)) + '</div></div>';
+    var st = WALLET_STYLE[r.wallet] || [r.wallet.charAt(0).toUpperCase(), '#64748b'];
+    var cls = r.balance < 0 ? 'neg' : (r.balance > 0 ? 'pos' : 'muted');
+    return '<div class="wallet"><span class="w-avatar" style="--wc:' + st[1] + '" aria-hidden="true">' + esc(st[0]) + '</span>' +
+      '<span class="w-name">' + esc(r.wallet) + '</span>' +
+      '<span class="w-amt ' + cls + '">' + esc(money(r.balance)) + '</span></div>';
   }).join('');
 }
 
@@ -1224,7 +1258,8 @@ function initPWA() {
     hideInstallUI();
   });
   document.addEventListener('click', function (e) {
-    var id = e.target && e.target.id;
+    var hit = e.target && e.target.closest ? e.target.closest('#installBtn, #installBtnCard, #installDismiss') : null;
+    var id = hit ? hit.id : '';
     if (id === 'installBtn' || id === 'installBtnCard') promptInstall();
     if (id === 'installDismiss') {
       try { localStorage.setItem(INSTALL_DISMISS_KEY, '1'); } catch (err) {}

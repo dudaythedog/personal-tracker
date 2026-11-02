@@ -12,7 +12,7 @@ Tabs: **Home (dashboard) · Habits · Health · Finance · Goals & Tasks**
 - **Finance:** income/expense + amount (₱, auto-comma)/category/description/date + payment method (Cash, GCash, Maya, cards, bank) on expenses, monthly income/expense/balance, date filter. **Transfers** (e.g. Maya → GCash) move money between wallets without counting as spending — only the fee counts as an expense. **Wallet balances** on the dashboard show net per payment method, derived from your transactions.
 - **Goals & Tasks:** tasks with due date, priority, done/undone, optional goal link; goal progress % = done ÷ linked tasks.
 - **Data:** export JSON backup, import with Replace/Merge, reset all (double confirm). Corrupted storage is detected and backed up, never crashes.
-- **Design:** mobile-first responsive with an app-style bottom tab bar on phones, bottom-sheet dialog for transactions, deep links per tab (`#habits`, `#finance`, …), auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, labels, keyboard-friendly.
+- **Design:** mobile-first responsive with an app-style frosted bottom tab bar on phones, a floating "Add transaction" button, bottom-sheet dialog with sticky actions, transactions grouped by day (tap a row to edit; delete from the sheet), habit 7-day dots, deep links per tab (`#habits`, `#finance`, …), auto light/dark via `prefers-color-scheme` + manual toggle (Auto → Light → Dark), semantic HTML, labels, keyboard-friendly. Still zero dependencies and no build step.
 
 ## Files
 
