@@ -241,7 +241,10 @@ a { color: var(--accent); }
 .form-span { grid-column: 1 / -1; }
 @media (min-width: 640px) { .form-grid.cols-2 { grid-template-columns: 1fr 1fr; } }
 .health-form { grid-template-columns: 1fr 1fr; }
-@media (min-width: 900px) { .health-form { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 900px) {
+  .health-form { grid-template-columns: repeat(4, 1fr); }
+  .health-form .hf-date, .health-form .hf-note { grid-column: span 2; }
+}
 .field { display: grid; gap: .35rem; min-width: 0; align-content: start; }
 label, .label { font-weight: 600; font-size: .85rem; color: var(--text); }
 input, select {
@@ -617,6 +620,18 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .inline-form .grow { flex: 999 1 9rem; }
   .inline-form .row { flex: 1 0 auto; }
 
+  /* Health: Date | Note on one row, the four numbers on the next */
+  .health-form { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem .45rem; }
+  .health-form .hf-date, .health-form .hf-note { grid-column: span 2; }
+  /* inputs sit at the bottom so they line up even if one label wraps */
+  .health-form .hf-metric { align-content: end; }
+  .health-form .hf-metric label { text-align: center; font-size: .76rem; line-height: 1.25; overflow-wrap: anywhere; }
+  .health-form .hf-metric .muted-sm { display: block; font-size: .7rem; font-weight: 500; }
+  .health-form .hf-metric input { text-align: center; padding-left: .25rem; padding-right: .25rem; -moz-appearance: textfield; appearance: textfield; }
+  .health-form .hf-metric input::-webkit-inner-spin-button,
+  .health-form .hf-metric input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .health-form .hf-date input { padding-right: .5rem; }
+
   /* Finance */
   #view-finance .page-head { flex-wrap: nowrap; }
   #view-finance .page-head h2 { flex: 1 1 auto; min-width: 0; }
@@ -709,6 +724,13 @@ dialog::backdrop { background: rgba(8, 10, 14, .5); -webkit-backdrop-filter: blu
   .tx .amt { font-size: .92rem; }
   .fin-ico { width: 34px; height: 34px; }
   .dialog-actions #financeDelete .ico + * { display: none; }
+}
+/* very narrow phones: Date and Note get full rows, the numbers a 2×2 grid */
+@media (max-width: 359px) {
+  .health-form .hf-date, .health-form .hf-note { grid-column: 1 / -1; }
+  .health-form .hf-metric { grid-column: span 2; }
+  .health-form .hf-metric label { font-size: .8rem; }
+  .health-form .hf-metric .muted-sm { display: inline; font-size: inherit; }
 }
 
 /* landscape phones / short heights: keep dialog usable */

@@ -206,29 +206,29 @@
     <article class="card">
       <h3 id="healthFormTitle">Log health</h3>
       <form id="healthForm" class="form-grid health-form">
-        <div class="field form-span">
+        <div class="field hf-date">
           <label for="healthDate">Date</label>
           <input id="healthDate" type="date" required>
         </div>
-        <div class="field">
+        <div class="field hf-note">
+          <label for="healthNote">Note <span class="muted-sm">(optional)</span></label>
+          <input id="healthNote" type="text" maxlength="140" autocomplete="off">
+        </div>
+        <div class="field hf-metric">
           <label for="healthWater">💧 Water <span class="muted-sm">(glasses)</span></label>
           <input id="healthWater" type="number" inputmode="numeric" min="0" max="30" step="1" placeholder="0">
         </div>
-        <div class="field">
+        <div class="field hf-metric">
           <label for="healthSleep">😴 Sleep <span class="muted-sm">(hours)</span></label>
           <input id="healthSleep" type="number" inputmode="decimal" min="0" max="24" step="0.5" placeholder="0">
         </div>
-        <div class="field">
+        <div class="field hf-metric">
           <label for="healthWorkout">🏃 Workout <span class="muted-sm">(min)</span></label>
           <input id="healthWorkout" type="number" inputmode="numeric" min="0" max="600" step="1" placeholder="0">
         </div>
-        <div class="field">
+        <div class="field hf-metric">
           <label for="healthWeight">⚖️ Weight <span class="muted-sm">(kg)</span></label>
           <input id="healthWeight" type="number" inputmode="decimal" min="20" max="300" step="0.1" placeholder="—">
-        </div>
-        <div class="field form-span">
-          <label for="healthNote">Note <span class="muted-sm">(optional)</span></label>
-          <input id="healthNote" type="text" maxlength="140" autocomplete="off">
         </div>
         <div class="row form-span">
           <button type="submit" class="btn" id="healthSubmit">Save entry</button>
